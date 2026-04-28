@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from incremental_update_db import ensure_base_schema, sync_database
+from incremental_update_db import append_update_log, backup_database, ensure_base_schema, sync_database
 
 
 def dump_json(path: Path, payload):
@@ -126,6 +126,14 @@ def main():
             },
         ]
 
+        backup_dir = ROOT / 'db_backups'
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        existing_backups = set(backup_dir.glob('test_*.db'))
+        backup_path = backup_database(db_path)
+        assert backup_path is not None
+        assert backup_path.exists()
+        assert backup_path not in existing_backups
+
         dump_json(colleges_json, latest_colleges)
         dump_json(teachers_json, latest_teachers)
 
@@ -190,6 +198,15 @@ def main():
         assert relations == {'old_college'}
 
         conn.close()
+
+        log_path = tmpdir_path / 'incremental_update.log'
+        append_update_log(log_path, stats, backup_path)
+        log_text = log_path.read_text(encoding='utf-8')
+        assert '增量更新完成' in log_text
+        assert '新老师' in log_text
+        assert '新学院' in log_text
+
+        backup_path.unlink(missing_ok=True)
         print('incremental update test passed')
 
 

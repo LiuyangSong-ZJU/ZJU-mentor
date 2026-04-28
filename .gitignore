@@ -8,6 +8,9 @@ __pycache__/
 # Local runtime data
 zju_teachers.db
 all_zju_teachers.json
+data/latest_*.json
+db_backups/
+incremental_update.log
 
 # Frontend build artifacts
 zju-mentor-frontend/node_modules/

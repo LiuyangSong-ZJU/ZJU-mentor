@@ -28,6 +28,7 @@ import argparse
 import json
 import shutil
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 
@@ -38,6 +39,8 @@ CANONICAL_COLLEGES_JSON = DATA_DIR / 'zju_colleges.json'
 CANONICAL_TEACHERS_JSON = DATA_DIR / 'all_zju_teachers.json'
 LATEST_COLLEGES_JSON = DATA_DIR / 'latest_zju_colleges.json'
 LATEST_TEACHERS_JSON = DATA_DIR / 'latest_all_zju_teachers.json'
+BACKUP_DIR = ROOT / 'db_backups'
+UPDATE_LOG_PATH = ROOT / 'incremental_update.log'
 
 # 黑名单：这些节点是门户里的大类或虚拟分类，不直接作为“小单位”抓导师
 EXCLUDE_LIST = [
@@ -351,6 +354,63 @@ def load_json(path: Path):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
+def ensure_backup_dir():
+    """确保数据库备份目录存在。"""
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def backup_database(db_path: Path):
+    """在更新前自动备份当前数据库。
+
+    备份文件名带时间戳，方便灾难恢复时按时间点回滚。
+    如果数据库尚不存在，则跳过备份。
+    """
+    if not db_path.exists():
+        print('当前数据库不存在，跳过备份。')
+        return None
+
+    ensure_backup_dir()
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_path = BACKUP_DIR / f'{db_path.stem}_{timestamp}{db_path.suffix}'
+    shutil.copy2(db_path, backup_path)
+    print(f'已备份当前数据库到: {backup_path}')
+    return backup_path
+
+
+def append_update_log(log_path: Path, sync_stats, backup_path: Path | None):
+    """把本次增量更新结果追加写入日志文件。"""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    inserted_teacher_names = sync_stats['teachers']['inserted_names']
+    inserted_department_names = sync_stats['departments']['inserted_names']
+
+    log_lines = [
+        f'[{timestamp}] 增量更新完成',
+        f'  备份文件: {backup_path if backup_path else "无（数据库原先不存在）"}',
+        (
+            '  导师: '
+            f'新增 {sync_stats["teachers"]["inserted"]}，'
+            f'更新 {sync_stats["teachers"]["updated"]}，'
+            f'新增名单: {", ".join(inserted_teacher_names) if inserted_teacher_names else "无"}'
+        ),
+        (
+            '  单位: '
+            f'新增 {sync_stats["departments"]["inserted"]}，'
+            f'更新 {sync_stats["departments"]["updated"]}，'
+            f'新增名单: {", ".join(inserted_department_names) if inserted_department_names else "无"}'
+        ),
+        (
+            '  关系: '
+            f'新增 {sync_stats["relations"]["inserted"]}，'
+            f'删除旧关系 {sync_stats["relations"]["deleted"]}'
+        ),
+        '',
+    ]
+
+    with log_path.open('a', encoding='utf-8') as file:
+        file.write('\n'.join(log_lines))
+
+
 def sync_big_departments(cursor, colleges_data):
     """同步大单位：只新增/更新，不删除。"""
     stats = {'inserted': 0, 'updated': 0}
@@ -386,7 +446,7 @@ def sync_big_departments(cursor, colleges_data):
 
 def sync_departments(cursor, colleges_data, teachers_data):
     """同步单位表：单位不删，只新增或更新名称/归属。"""
-    stats = {'inserted': 0, 'updated': 0}
+    stats = {'inserted': 0, 'updated': 0, 'inserted_names': []}
 
     existing = {
         row['college_id']: {'college_name': row['college_name'], 'big_dept_id': row['big_dept_id']}
@@ -423,6 +483,7 @@ def sync_departments(cursor, colleges_data, teachers_data):
                 (college_id, target['college_name'], target['big_dept_id']),
             )
             stats['inserted'] += 1
+            stats['inserted_names'].append(target['college_name'])
             continue
 
         current = existing[college_id]
@@ -442,7 +503,7 @@ def sync_departments(cursor, colleges_data, teachers_data):
 
 def sync_teachers(cursor, teachers_data):
     """同步导师表：按 uid 增量更新，不删除老师。"""
-    stats = {'inserted': 0, 'updated': 0}
+    stats = {'inserted': 0, 'updated': 0, 'inserted_names': []}
 
     existing = {
         row['uid']: {
@@ -482,6 +543,7 @@ def sync_teachers(cursor, teachers_data):
                 ),
             )
             stats['inserted'] += 1
+            stats['inserted_names'].append(target['name'])
             continue
 
         if existing[teacher['uid']] != target:
@@ -575,6 +637,13 @@ def sync_database(db_path: Path, colleges_json_path: Path, teachers_json_path: P
     print(f'  - 小单位：新增 {dept_stats["inserted"]}，更新 {dept_stats["updated"]}')
     print(f'  - 导师：新增 {teacher_stats["inserted"]}，更新 {teacher_stats["updated"]}')
     print(f'  - 关系：新增 {relation_stats["inserted"]}，删除旧关系 {relation_stats["deleted"]}')
+    print(
+        '命令行摘要：'
+        f' 导师新增 {teacher_stats["inserted"]} 人，'
+        f'导师更新 {teacher_stats["updated"]} 人，'
+        f'单位新增 {dept_stats["inserted"]} 个，'
+        f'单位更新 {dept_stats["updated"]} 个'
+    )
 
     return {
         'big_departments': big_stats,
@@ -616,7 +685,10 @@ def main():
         if not LATEST_COLLEGES_JSON.exists() or not LATEST_TEACHERS_JSON.exists():
             raise FileNotFoundError('你指定了 --skip-fetch，但 latest JSON 快照不存在。')
 
-    sync_database(db_path, LATEST_COLLEGES_JSON, LATEST_TEACHERS_JSON)
+    backup_path = backup_database(db_path)
+    sync_stats = sync_database(db_path, LATEST_COLLEGES_JSON, LATEST_TEACHERS_JSON)
+    append_update_log(UPDATE_LOG_PATH, sync_stats, backup_path)
+    print(f'更新日志已追加写入: {UPDATE_LOG_PATH}')
 
     if args.refresh_canonical_json:
         refresh_canonical_json_files()
