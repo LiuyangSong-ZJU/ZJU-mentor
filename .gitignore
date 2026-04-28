@@ -1,0 +1,14 @@
+.DS_Store
+.vscode/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+
+# Local runtime data
+zju_teachers.db
+all_zju_teachers.json
+
+# Frontend build artifacts
+zju-mentor-frontend/node_modules/
+zju-mentor-frontend/dist/
