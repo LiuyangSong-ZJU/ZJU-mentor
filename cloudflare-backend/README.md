@@ -111,12 +111,15 @@ curl -s -X POST https://your-domain.example.com/api/admin/sync/run \
 }
 ```
 
-Cloudflare Cron 使用 UTC 时间。`0 19 * * *` 等于北京时间每天 03:00。
+现在定时同步推荐交给 GitHub Actions：先导出 D1 备份并发布公开数据包，再触发线上增量同步。Worker 自己的 Cron 已从 `wrangler.jsonc` 移除，避免绕过备份直接写库。
 
-本地模拟 Cron：
+手动触发线上同步时，建议不要直接 `curl /api/admin/sync/run`，而是使用“先备份再同步”的脚本：
 
 ```bash
-curl -s http://127.0.0.1:8787/cdn-cgi/handler/scheduled
+cd /Users/pipi/Life/ZJU-mentor/cloudflare-backend
+ZJU_MENTOR_SYNC_URL=https://your-domain.example.com \
+ZJU_MENTOR_ADMIN_TOKEN=your-production-admin-token \
+npm run sync:remote:with-backup
 ```
 
 增量更新规则迁移自 `/Users/pipi/Life/ZJU-mentor/incremental_update_db.py`：
@@ -128,6 +131,63 @@ curl -s http://127.0.0.1:8787/cdn-cgi/handler/scheduled
 - 没出现在最新抓取结果里的旧老师，其旧单位关系保留
 - 评论和链接不会被爬虫覆盖
 - 每次同步写入 `sync_runs` 表，记录状态、摘要和错误信息
+
+## 数据备份与公开数据包
+
+生成本地 D1 备份：
+
+```bash
+cd /Users/pipi/Life/ZJU-mentor/cloudflare-backend
+npm run backup:local
+```
+
+生成远程 D1 备份：
+
+```bash
+cd /Users/pipi/Life/ZJU-mentor/cloudflare-backend
+npm run backup:remote
+```
+
+备份目录：
+
+- `/Users/pipi/Life/ZJU-mentor/cloudflare-backend/backups/YYYY-MM-DDTHH-MM-SSZ`
+
+每个备份目录包含：
+
+- `database-full.sql.gz`
+  - 完整恢复包，包含所有表，可用于灾难恢复
+- `database-public.sql.gz`
+  - 公开数据包，只包含老师、单位、评论、链接等公开表
+- `json/full/*.json`
+  - 完整表 JSON，包含 `site_feedback`、`sync_runs`、`comment_votes`
+- `json/public/*.json`
+  - 公开表 JSON，不包含反馈内容、同步日志和匿名投票标识
+- `manifest.json`
+  - 生成时间、表列表、行数、sha256
+
+保留策略由 `scripts/create-data-backup.mjs` 自动执行：
+
+- 一周内：全部保留
+- 超过一周但不到两个月：每 7 天保留一份，其余删除
+- 超过两个月：每个月保留一份，其余删除
+
+GitHub Actions 工作流在 `.github/workflows/backup-and-sync.yml`：
+
+1. 每天北京时间 02:50 或手动触发。
+2. 生成远程 D1 备份。
+3. 把公开包发布到 GitHub Release。
+4. 再调用线上 `/api/admin/sync/run` 执行增量抓取和同步。
+
+需要在 GitHub 仓库 `Settings -> Secrets and variables -> Actions -> Repository secrets` 设置：
+
+- `CLOUDFLARE_API_TOKEN`
+  - 需要 D1 读取/导出权限
+- `CLOUDFLARE_ACCOUNT_ID`
+  - Cloudflare 账号 ID
+- `ZJU_MENTOR_SYNC_URL`
+  - 线上站点地址，例如 `https://your-domain.example.com`
+- `ZJU_MENTOR_ADMIN_TOKEN`
+  - 线上后台口令
 
 ## 文件位置
 

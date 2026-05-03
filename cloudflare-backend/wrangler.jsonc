@@ -28,10 +28,5 @@
 		"run_worker_first": [
 			"/api/*"
 		]
-	},
-	"triggers": {
-		"crons": [
-			"0 19 * * *"
-		]
 	}
 }

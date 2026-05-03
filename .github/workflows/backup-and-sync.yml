@@ -1,0 +1,54 @@
+name: Backup Data And Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 北京时间每天 02:50：先备份，再触发线上增量同步。
+    - cron: "50 18 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  backup-and-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare-backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: cloudflare-backend
+        run: npm ci
+
+      - name: Create D1 backup package
+        working-directory: cloudflare-backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run backup:remote
+
+      - name: Publish public data package to GitHub Release
+        working-directory: cloudflare-backend
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BACKUP_DIR="$(cat backups/latest-backup-path.txt)"
+          BACKUP_NAME="$(basename "$BACKUP_DIR")"
+          PUBLIC_ARCHIVE="zju-mentor-public-data-${BACKUP_NAME}.tar.gz"
+          tar -czf "$PUBLIC_ARCHIVE" -C "$BACKUP_DIR" manifest.json database-public.sql.gz json/public
+          gh release create "data-${BACKUP_NAME}" "$PUBLIC_ARCHIVE" \
+            --title "ZJU Mentor public data ${BACKUP_NAME}" \
+            --notes "Public data package generated before the scheduled sync. It excludes site feedback, sync logs, and raw comment vote identifiers."
+
+      - name: Trigger production sync
+        env:
+          ZJU_MENTOR_SYNC_URL: ${{ secrets.ZJU_MENTOR_SYNC_URL }}
+          ZJU_MENTOR_ADMIN_TOKEN: ${{ secrets.ZJU_MENTOR_ADMIN_TOKEN }}
+        run: |
+          curl -fsS -X POST "${ZJU_MENTOR_SYNC_URL%/}/api/admin/sync/run" \
+            -H "X-Admin-Token: ${ZJU_MENTOR_ADMIN_TOKEN}"

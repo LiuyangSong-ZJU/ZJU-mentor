@@ -9,6 +9,9 @@
     "check": "tsc --noEmit",
     "d1:migrate:local": "wrangler d1 execute zju-mentor-db --local --file ./migrations/0001_init.sql && wrangler d1 execute zju-mentor-db --local --file ./migrations/0002_comment_votes.sql && wrangler d1 execute zju-mentor-db --local --file ./migrations/0003_site_feedback.sql",
     "d1:migrate:remote": "wrangler d1 execute zju-mentor-db --remote --file ./migrations/0001_init.sql && wrangler d1 execute zju-mentor-db --remote --file ./migrations/0002_comment_votes.sql && wrangler d1 execute zju-mentor-db --remote --file ./migrations/0003_site_feedback.sql",
+    "backup:local": "node ./scripts/create-data-backup.mjs --local",
+    "backup:remote": "node ./scripts/create-data-backup.mjs --remote",
+    "sync:remote:with-backup": "node ./scripts/backup-and-trigger-sync.mjs --remote",
     "seed:sql": "node ./scripts/seed-from-json.ts",
     "d1:seed:local": "npm run seed:sql && wrangler d1 execute zju-mentor-db --local --file ./tmp/seed.sql",
     "d1:seed:remote": "npm run seed:sql && wrangler d1 execute zju-mentor-db --remote --file ./tmp/seed.sql"
