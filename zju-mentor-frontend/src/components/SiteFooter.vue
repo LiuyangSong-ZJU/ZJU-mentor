@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const isFeedbackDialogOpen = ref(false)
+const isAboutDialogOpen = ref(false)
 const isSubmittingFeedback = ref(false)
 const feedbackDialogTitle = ref('反馈与建议')
 const feedbackForm = reactive({
@@ -71,7 +72,7 @@ const showAuthorContact = async () => {
       <a href="#" class="font-medium text-slate-600 hover:text-blue-600 transition-colors" @click.prevent>下载全站数据</a>
       <div class="flex flex-wrap items-center justify-center gap-8">
         <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="openFeedbackDialog('error', '报告错误（导师信息/网站 bug）')">报告错误（导师信息/网站bug）</a>
-        <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent>关于本站</a>
+        <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="isAboutDialogOpen = true">关于本站</a>
         <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="showAuthorContact">联系作者</a>
         <span>
           <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="openFeedbackDialog('suggestion', '反馈与建议')">反馈与建议</a>
@@ -101,6 +102,22 @@ const showAuthorContact = async () => {
           <el-button type="primary" :loading="isSubmittingFeedback" @click="submitFeedback">提交</el-button>
         </div>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="isAboutDialogOpen" title="关于本站" width="420px">
+      <div class="space-y-3 text-sm">
+        <a href="#" class="block font-medium text-blue-600 hover:text-blue-700 hover:underline" @click.prevent>
+          CC98帖子
+        </a>
+        <a
+          href="https://github.com/LiuyangSong-ZJU/ZJU-mentor"
+          target="_blank"
+          rel="noreferrer"
+          class="block font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        >
+          Github 仓库
+        </a>
+      </div>
     </el-dialog>
   </footer>
 </template>

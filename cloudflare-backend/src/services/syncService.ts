@@ -506,7 +506,11 @@ async function finishSyncRun(env: Env, id: number, status: "success" | "failed",
 }
 
 export async function listSyncRuns(env: Env) {
-  return d1All<Record<string, unknown>>(
+  const totalRow = await d1First<Record<string, unknown>>(
+    env.DB,
+    "SELECT COUNT(*) AS total FROM sync_runs",
+  );
+  const runs = await d1All<Record<string, unknown>>(
     env.DB,
     `
       SELECT id, mode, status, summary_json, error_message, created_at, finished_at
@@ -515,6 +519,11 @@ export async function listSyncRuns(env: Env) {
       LIMIT 20
     `,
   );
+
+  return {
+    total: Number(totalRow?.total || 0),
+    runs,
+  };
 }
 
 export async function runFullSync(env: Env, mode = "crawler") {

@@ -14,7 +14,7 @@ export async function handleIngestRoute(request: Request, env: Env, pathname: st
   }
 
   if (request.method === "GET" && pathname === "/api/admin/sync/runs") {
-    return { runs: await listSyncRuns(env) };
+    return listSyncRuns(env);
   }
 
   return null;

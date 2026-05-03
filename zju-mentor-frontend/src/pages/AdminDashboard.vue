@@ -11,12 +11,30 @@ const searchText = ref('')
 const sortBy = ref('reviews')
 const teachers = ref([])
 const feedbackItems = ref([])
+const syncRuns = ref([])
+const syncRunTotal = ref(0)
+const syncStatusError = ref('')
 const isLoading = ref(true)
 const errorMessage = ref('')
 
 const totalTeachers = computed(() => teachers.value.length)
+const totalSyncRuns = computed(() => syncRunTotal.value)
+const latestSyncRun = computed(() => syncRuns.value[0] || null)
 
 const feedbackTypeLabel = item => item.feedbackType === 'error' ? '报告错误' : '反馈建议'
+const syncStatusLabel = status => {
+  if (status === 'success') {
+    return '成功'
+  }
+  if (status === 'failed') {
+    return '失败'
+  }
+  if (status === 'running') {
+    return '运行中'
+  }
+
+  return status || '未知'
+}
 
 const formatDisplayDate = value => {
   if (!value) {
@@ -74,6 +92,33 @@ const loadFeedback = async () => {
   feedbackItems.value = payload.feedback ?? []
 }
 
+const loadSyncRuns = async () => {
+  syncStatusError.value = ''
+
+  try {
+    const response = await adminFetch('/api/admin/sync/runs')
+    const payload = await response.json()
+
+    if (response.status === 401) {
+      clearAdminToken()
+      router.replace({
+        path: '/__admin__/login',
+        query: { redirect: '/__admin__' }
+      })
+      return
+    }
+
+    if (!response.ok) {
+      throw new Error(payload.message || `请求失败：${response.status}`)
+    }
+
+    syncRuns.value = payload.runs ?? []
+    syncRunTotal.value = payload.total ?? syncRuns.value.length
+  } catch (error) {
+    syncStatusError.value = error.message || '加载同步状态失败。'
+  }
+}
+
 const handleDeleteFeedback = async item => {
   try {
     await ElMessageBox.confirm('确认删除这条反馈吗？此操作不可撤销。', '删除反馈', {
@@ -118,6 +163,7 @@ const logout = () => {
 
 onMounted(() => {
   loadRankings()
+  loadSyncRuns()
   loadFeedback().catch(error => {
     ElMessage.error(error.message || '加载反馈失败。')
   })
@@ -151,6 +197,53 @@ onMounted(() => {
             <el-option label="按快跑数" value="runaway" />
           </el-select>
           <el-button type="primary" size="large" @click="loadRankings">刷新排行</el-button>
+        </div>
+      </section>
+
+      <section class="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">爬虫更新状态</h2>
+            <p class="mt-1 text-xs text-slate-400">用于部署后快速确认自动/手动同步是否正常。</p>
+          </div>
+          <el-button @click="loadSyncRuns">刷新状态</el-button>
+        </div>
+
+        <div v-if="syncStatusError" class="mt-4 rounded-2xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-700">
+          {{ syncStatusError }}
+        </div>
+
+        <div v-else class="mt-4 grid gap-3 md:grid-cols-3">
+          <div class="rounded-2xl bg-slate-50 p-4">
+            <div class="text-xs font-semibold text-slate-400">总更新次数</div>
+            <div class="mt-2 text-2xl font-black text-slate-900">{{ totalSyncRuns }}</div>
+          </div>
+
+          <div class="rounded-2xl bg-slate-50 p-4">
+            <div class="text-xs font-semibold text-slate-400">最近一次更新时间</div>
+            <div class="mt-2 text-base font-bold text-slate-800">
+              {{ latestSyncRun ? formatDisplayDate(latestSyncRun.finished_at || latestSyncRun.created_at) : '暂无记录' }}
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-slate-50 p-4">
+            <div class="text-xs font-semibold text-slate-400">最近一次状态</div>
+            <div
+              class="mt-2 inline-flex rounded px-2.5 py-1 text-sm font-bold"
+              :class="{
+                'bg-emerald-50 text-emerald-700': latestSyncRun?.status === 'success',
+                'bg-rose-50 text-rose-700': latestSyncRun?.status === 'failed',
+                'bg-amber-50 text-amber-700': latestSyncRun?.status === 'running',
+                'bg-slate-100 text-slate-600': !latestSyncRun
+              }"
+            >
+              {{ latestSyncRun ? syncStatusLabel(latestSyncRun.status) : '暂无记录' }}
+            </div>
+          </div>
+        </div>
+
+        <div v-if="latestSyncRun?.error_message" class="mt-4 rounded-2xl border border-rose-100 bg-rose-50 p-4 text-sm leading-relaxed text-rose-700">
+          最近错误：{{ latestSyncRun.error_message }}
         </div>
       </section>
 
