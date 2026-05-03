@@ -1,13 +1,106 @@
+<script setup>
+import { reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+const isFeedbackDialogOpen = ref(false)
+const isSubmittingFeedback = ref(false)
+const feedbackDialogTitle = ref('反馈与建议')
+const feedbackForm = reactive({
+  feedbackType: 'suggestion',
+  content: ''
+})
+
+const openFeedbackDialog = (feedbackType, title) => {
+  feedbackForm.feedbackType = feedbackType
+  feedbackForm.content = ''
+  feedbackDialogTitle.value = title
+  isFeedbackDialogOpen.value = true
+}
+
+const submitFeedback = async () => {
+  const content = feedbackForm.content.trim()
+  if (!content) {
+    ElMessage.error('请先填写内容。')
+    return
+  }
+
+  isSubmittingFeedback.value = true
+  try {
+    const response = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        feedbackType: feedbackForm.feedbackType,
+        content
+      })
+    })
+    const payload = await response.json()
+    if (!response.ok) {
+      throw new Error(payload.message || `请求失败：${response.status}`)
+    }
+
+    isFeedbackDialogOpen.value = false
+    ElMessage.success('已收到，感谢你帮这个站变好。')
+  } catch (error) {
+    ElMessage.error(error.message || '提交失败，请稍后再试。')
+  } finally {
+    isSubmittingFeedback.value = false
+  }
+}
+
+const showAuthorContact = async () => {
+  try {
+    await ElMessageBox.alert('QQ: 3223255455', '联系作者', {
+      confirmButtonText: '复制 QQ'
+    })
+    await navigator.clipboard.writeText('3223255455')
+    ElMessage.success('已复制 QQ。')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.info('QQ: 3223255455')
+    }
+  }
+}
+</script>
+
 <template>
   <footer class="mt-auto pt-8 pb-4 border-t border-slate-200">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm text-slate-500">
       <a href="#" class="font-medium text-slate-600 hover:text-blue-600 transition-colors" @click.prevent>下载全站数据</a>
       <div class="flex flex-wrap items-center justify-center gap-8">
-        <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent>报告错误</a>
+        <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="openFeedbackDialog('error', '报告错误（导师信息/网站 bug）')">报告错误（导师信息/网站bug）</a>
         <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent>关于本站</a>
-        <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent>联系作者</a>
-        <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent>反馈与建议（欢迎加入讨论QQ群）</a>
+        <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="showAuthorContact">联系作者</a>
+        <span>
+          <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="openFeedbackDialog('suggestion', '反馈与建议')">反馈与建议</a>
+          <span>（欢迎加入讨论QQ群：1098994681）</span>
+        </span>
       </div>
     </div>
+
+    <el-dialog v-model="isFeedbackDialogOpen" :title="feedbackDialogTitle" width="560px">
+      <div class="space-y-4">
+        <p class="text-sm leading-relaxed text-slate-500">
+          可以写导师信息错误、网站 bug、功能建议或其他想法。提交后会出现在后台管理页。
+        </p>
+        <el-input
+          v-model="feedbackForm.content"
+          type="textarea"
+          :rows="7"
+          maxlength="2000"
+          show-word-limit
+          placeholder="请写下你想报告或建议的内容。"
+        />
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <el-button @click="isFeedbackDialogOpen = false">取消</el-button>
+          <el-button type="primary" :loading="isSubmittingFeedback" @click="submitFeedback">提交</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </footer>
 </template>

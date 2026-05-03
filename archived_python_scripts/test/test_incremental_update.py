@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from incremental_update_db import append_update_log, backup_database, ensure_base_schema, sync_database
+from archived_python_scripts.incremental_update_db import append_update_log, backup_database, ensure_base_schema, sync_database
 
 
 def dump_json(path: Path, payload):

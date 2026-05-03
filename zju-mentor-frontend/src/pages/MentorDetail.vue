@@ -7,6 +7,7 @@ import * as echarts from 'echarts'
 import SiteFooter from '../components/SiteFooter.vue'
 import SiteHomeLink from '../components/SiteHomeLink.vue'
 import TeacherSearchPanel from '../components/TeacherSearchPanel.vue'
+import { getVoterId, loadCommentVotes, saveCommentVotes } from '../utils/commentVotes'
 
 const route = useRoute()
 
@@ -45,6 +46,8 @@ const isReviewDialogOpen = ref(false)
 const isLinkDialogOpen = ref(false)
 const isSubmittingReview = ref(false)
 const isSubmittingLink = ref(false)
+const votingCommentIds = ref({})
+const commentVotes = ref(loadCommentVotes())
 
 const reviewForm = reactive({
   scores: Object.fromEntries(metricDefinitions.map(metric => [metric.key, 0])),
@@ -309,6 +312,52 @@ const submitLink = async () => {
   }
 }
 
+const isVotingComment = commentId => Boolean(votingCommentIds.value[commentId])
+
+const submitCommentVote = async (review, voteType) => {
+  if (!review?.id || isVotingComment(review.id)) {
+    return
+  }
+
+  const previousVote = commentVotes.value[review.id]
+  votingCommentIds.value = { ...votingCommentIds.value, [review.id]: true }
+
+  try {
+    const response = await fetch(`/api/comments/${review.id}/vote`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        voterId: getVoterId(),
+        voteType
+      })
+    })
+
+    const payload = await response.json()
+    if (!response.ok) {
+      throw new Error(payload.message || `请求失败：${response.status}`)
+    }
+
+    const nextVotes = { ...commentVotes.value }
+    if (previousVote === voteType) {
+      delete nextVotes[review.id]
+    } else {
+      nextVotes[review.id] = voteType
+    }
+    commentVotes.value = nextVotes
+    saveCommentVotes(nextVotes)
+
+    applyMentorPayload(payload)
+  } catch (error) {
+    ElMessage.error(error.message || '投票失败。')
+  } finally {
+    const nextVoting = { ...votingCommentIds.value }
+    delete nextVoting[review.id]
+    votingCommentIds.value = nextVoting
+  }
+}
+
 onMounted(() => {
   renderRadarChart()
   window.addEventListener('resize', resizeRadarChart)
@@ -495,10 +544,24 @@ watch(radarChartRef, value => {
                 </div>
 
                 <div class="flex flex-shrink-0 gap-3">
-                  <el-button size="default" :icon="CaretTop" class="w-20 font-bold">
+                  <el-button
+                    size="default"
+                    :type="commentVotes[review.id] === 'up' ? 'primary' : 'default'"
+                    :icon="CaretTop"
+                    :loading="isVotingComment(review.id)"
+                    class="w-20 font-bold"
+                    @click="submitCommentVote(review, 'up')"
+                  >
                     {{ review.upvotes }}
                   </el-button>
-                  <el-button size="default" :icon="CaretBottom" class="w-16">
+                  <el-button
+                    size="default"
+                    :type="commentVotes[review.id] === 'down' ? 'danger' : 'default'"
+                    :icon="CaretBottom"
+                    :loading="isVotingComment(review.id)"
+                    class="w-16"
+                    @click="submitCommentVote(review, 'down')"
+                  >
                     {{ review.downvotes }}
                   </el-button>
                 </div>
@@ -539,7 +602,7 @@ watch(radarChartRef, value => {
     <el-dialog v-model="isReviewDialogOpen" title="写评价" width="720px">
       <div class="space-y-6">
         <section>
-          <div class="mb-4 text-sm font-medium text-slate-500">评分（每个都为可选）</div>
+          <div class="mb-4 text-sm font-medium text-slate-500">评分（每个都为可选，0.0 为不评价）</div>
 
           <div class="space-y-3">
             <div
@@ -553,7 +616,7 @@ watch(radarChartRef, value => {
                 class="review-score-slider"
                 :min="0"
                 :max="5"
-                :step="0.5"
+                :step="0.1"
                 :marks="sliderMarks"
                 :show-tooltip="false"
                 show-stops
@@ -562,7 +625,7 @@ watch(radarChartRef, value => {
                 v-model="reviewForm.scores[metric.key]"
                 :min="0"
                 :max="5"
-                :step="0.5"
+                :step="0.1"
                 :precision="1"
                 :controls="false"
                 class="review-score-input"

@@ -1,6 +1,28 @@
 <script setup>
+import { onMounted, ref } from 'vue'
 import SiteFooter from '../components/SiteFooter.vue'
 import TeacherSearchPanel from '../components/TeacherSearchPanel.vue'
+
+const portalStats = ref({
+  reviewedTeacherCount: 0,
+  reviewCount: 0
+})
+
+const hasLoadedStats = ref(false)
+
+onMounted(async () => {
+  try {
+    const response = await fetch('/api/stats')
+    if (!response.ok) {
+      throw new Error(`请求失败：${response.status}`)
+    }
+
+    portalStats.value = await response.json()
+    hasLoadedStats.value = true
+  } catch {
+    hasLoadedStats.value = false
+  }
+})
 </script>
 
 <template>
@@ -17,6 +39,10 @@ import TeacherSearchPanel from '../components/TeacherSearchPanel.vue'
           <RouterLink to="/browse/unit" class="font-medium text-blue-600 hover:text-blue-700 hover:underline">按单位浏览</RouterLink>
           <RouterLink to="/browse/name" class="font-medium text-blue-600 hover:text-blue-700 hover:underline">按名字浏览</RouterLink>
         </div>
+
+        <p v-if="hasLoadedStats" class="mt-7 text-center text-sm text-slate-500">
+          共有 {{ portalStats.reviewedTeacherCount }} 个老师被提交 {{ portalStats.reviewCount }} 条评价
+        </p>
       </div>
     </main>
 

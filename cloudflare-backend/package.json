@@ -1,0 +1,26 @@
+{
+  "name": "zju-mentor-cloudflare-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit",
+    "d1:migrate:local": "wrangler d1 execute zju-mentor-db --local --file ./migrations/0001_init.sql && wrangler d1 execute zju-mentor-db --local --file ./migrations/0002_comment_votes.sql && wrangler d1 execute zju-mentor-db --local --file ./migrations/0003_site_feedback.sql",
+    "d1:migrate:remote": "wrangler d1 execute zju-mentor-db --remote --file ./migrations/0001_init.sql && wrangler d1 execute zju-mentor-db --remote --file ./migrations/0002_comment_votes.sql && wrangler d1 execute zju-mentor-db --remote --file ./migrations/0003_site_feedback.sql",
+    "seed:sql": "node ./scripts/seed-from-json.ts",
+    "d1:seed:local": "npm run seed:sql && wrangler d1 execute zju-mentor-db --local --file ./tmp/seed.sql",
+    "d1:seed:remote": "npm run seed:sql && wrangler d1 execute zju-mentor-db --remote --file ./tmp/seed.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/playwright": "^1.3.0",
+    "@cloudflare/workers-types": "^4.20260425.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.13.2"
+  },
+  "dependencies": {
+    "pinyin-pro": "^3.28.1"
+  }
+}

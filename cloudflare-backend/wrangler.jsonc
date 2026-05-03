@@ -1,0 +1,37 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "zju-mentor-cloudflare-backend",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-04-28",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"upload_source_maps": true,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "zju-mentor-db",
+			"database_id": "63347273-fd4d-4eca-9a8f-b10eeecbe77d"
+		}
+	],
+	"browser": {
+		"binding": "MYBROWSER"
+	},
+	"vars": {
+		"SYNC_ENABLED": "true",
+		"ZJU_BASE_URL": "https://person.zju.edu.cn"
+	},
+	"assets": {
+		"directory": "../zju-mentor-frontend/dist",
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application",
+		"run_worker_first": [
+			"/api/*"
+		]
+	},
+	"triggers": {
+		"crons": [
+			"0 19 * * *"
+		]
+	}
+}

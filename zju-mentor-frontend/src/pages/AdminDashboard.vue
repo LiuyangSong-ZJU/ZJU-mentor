@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import SiteFooter from '../components/SiteFooter.vue'
 import { adminFetch, clearAdminToken } from '../utils/adminAuth'
@@ -10,10 +10,21 @@ const router = useRouter()
 const searchText = ref('')
 const sortBy = ref('reviews')
 const teachers = ref([])
+const feedbackItems = ref([])
 const isLoading = ref(true)
 const errorMessage = ref('')
 
 const totalTeachers = computed(() => teachers.value.length)
+
+const feedbackTypeLabel = item => item.feedbackType === 'error' ? '报告错误' : '反馈建议'
+
+const formatDisplayDate = value => {
+  if (!value) {
+    return ''
+  }
+
+  return String(value).replace('T', ' ').slice(0, 16)
+}
 
 const loadRankings = async () => {
   isLoading.value = true
@@ -43,6 +54,59 @@ const loadRankings = async () => {
   }
 }
 
+const loadFeedback = async () => {
+  const response = await adminFetch('/api/admin/feedback')
+  const payload = await response.json()
+
+  if (response.status === 401) {
+    clearAdminToken()
+    router.replace({
+      path: '/__admin__/login',
+      query: { redirect: '/__admin__' }
+    })
+    return
+  }
+
+  if (!response.ok) {
+    throw new Error(payload.message || `请求失败：${response.status}`)
+  }
+
+  feedbackItems.value = payload.feedback ?? []
+}
+
+const handleDeleteFeedback = async item => {
+  try {
+    await ElMessageBox.confirm('确认删除这条反馈吗？此操作不可撤销。', '删除反馈', {
+      type: 'warning'
+    })
+
+    const response = await adminFetch(`/api/admin/feedback/${item.id}`, {
+      method: 'DELETE'
+    })
+    const payload = await response.json()
+
+    if (response.status === 401) {
+      clearAdminToken()
+      router.replace({
+        path: '/__admin__/login',
+        query: { redirect: '/__admin__' }
+      })
+      return
+    }
+
+    if (!response.ok) {
+      throw new Error(payload.message || `请求失败：${response.status}`)
+    }
+
+    feedbackItems.value = payload.feedback ?? []
+    ElMessage.success('反馈已删除。')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除反馈失败。')
+    }
+  }
+}
+
 const openTeacher = uid => {
   router.push(`/__admin__/teacher/${encodeURIComponent(uid)}`)
 }
@@ -54,6 +118,9 @@ const logout = () => {
 
 onMounted(() => {
   loadRankings()
+  loadFeedback().catch(error => {
+    ElMessage.error(error.message || '加载反馈失败。')
+  })
 })
 </script>
 
@@ -85,6 +152,44 @@ onMounted(() => {
           </el-select>
           <el-button type="primary" size="large" @click="loadRankings">刷新排行</el-button>
         </div>
+      </section>
+
+      <section class="mb-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">站点反馈（{{ feedbackItems.length }}）</h2>
+            <p class="mt-1 text-xs text-slate-400">来自页脚的错误报告、反馈与建议。</p>
+          </div>
+          <el-button @click="loadFeedback">刷新反馈</el-button>
+        </div>
+
+        <div v-if="feedbackItems.length === 0" class="p-5 text-sm text-slate-500">
+          暂无站点反馈。
+        </div>
+
+        <article
+          v-for="item in feedbackItems"
+          :key="item.id"
+          class="border-b border-slate-100 p-5 last:border-b-0"
+        >
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+              <span>#{{ item.id }}</span>
+              <span
+                class="rounded px-2 py-1 text-xs font-semibold"
+                :class="item.feedbackType === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'"
+              >
+                {{ feedbackTypeLabel(item) }}
+              </span>
+              <span>{{ formatDisplayDate(item.date) }}</span>
+            </div>
+            <el-button type="danger" plain @click="handleDeleteFeedback(item)">删除反馈</el-button>
+          </div>
+
+          <div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+            {{ item.content }}
+          </div>
+        </article>
       </section>
 
       <div v-if="isLoading" class="rounded-2xl border border-slate-200 bg-white p-6 text-slate-500 shadow-sm">

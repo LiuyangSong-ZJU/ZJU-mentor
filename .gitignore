@@ -15,3 +15,9 @@ incremental_update.log
 # Frontend build artifacts
 zju-mentor-frontend/node_modules/
 zju-mentor-frontend/dist/
+
+# Cloudflare backend local artifacts
+cloudflare-backend/node_modules/
+cloudflare-backend/.wrangler/
+cloudflare-backend/tmp/
+cloudflare-backend/.dev.vars
