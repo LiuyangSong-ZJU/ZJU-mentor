@@ -3,6 +3,8 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const VISITOR_ID_KEY = 'zju-mentor-visitor-id'
+const AUTHOR_QQ = '3488105113'
+const CC98_POST_URL = ''
 
 const isFeedbackDialogOpen = ref(false)
 const isAboutDialogOpen = ref(false)
@@ -56,14 +58,14 @@ const submitFeedback = async () => {
 
 const showAuthorContact = async () => {
   try {
-    await ElMessageBox.alert('QQ: 3223255455', '联系作者', {
+    await ElMessageBox.alert(`QQ: ${AUTHOR_QQ}`, '联系作者', {
       confirmButtonText: '复制 QQ'
     })
-    await navigator.clipboard.writeText('3223255455')
+    await navigator.clipboard.writeText(AUTHOR_QQ)
     ElMessage.success('已复制 QQ。')
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.info('QQ: 3223255455')
+      ElMessage.info(`QQ: ${AUTHOR_QQ}`)
     }
   }
 }
@@ -157,18 +159,34 @@ onMounted(() => {
     </el-dialog>
 
     <el-dialog v-model="isAboutDialogOpen" title="关于本站" width="420px">
-      <div class="space-y-3 text-sm">
-        <a href="#" class="block font-medium text-blue-600 hover:text-blue-700 hover:underline" @click.prevent>
-          CC98帖子
-        </a>
-        <a
-          href="https://github.com/LiuyangSong-ZJU/ZJU-mentor"
-          target="_blank"
-          rel="noreferrer"
-          class="block font-medium text-blue-600 hover:text-blue-700 hover:underline"
-        >
-          Github 仓库
-        </a>
+      <div class="space-y-5 text-sm">
+        <div class="space-y-3">
+          <a
+            :href="CC98_POST_URL || '#'"
+            :target="CC98_POST_URL ? '_blank' : undefined"
+            :rel="CC98_POST_URL ? 'noreferrer' : undefined"
+            class="block font-medium text-blue-600 hover:text-blue-700 hover:underline"
+            @click="!CC98_POST_URL && $event.preventDefault()"
+          >
+            CC98帖子
+          </a>
+          <a
+            href="https://github.com/LiuyangSong-ZJU/ZJU-mentor"
+            target="_blank"
+            rel="noreferrer"
+            class="block font-medium text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            Github 仓库
+          </a>
+        </div>
+
+        <div class="rounded-2xl bg-slate-50/70 p-4 text-xs leading-6 text-slate-400">
+          <div class="font-semibold text-slate-500">本站宗旨与特点：</div>
+          <div>1. 评价数据与代码全开源</div>
+          <div>2. 匿名评价</div>
+          <div>3. 所有评价均为选填</div>
+          <div>4. 可添加外链如 CC98 帖子链接</div>
+        </div>
       </div>
     </el-dialog>
   </footer>
