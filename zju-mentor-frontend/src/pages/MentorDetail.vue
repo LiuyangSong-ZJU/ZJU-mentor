@@ -659,7 +659,7 @@ watch(radarChartRef, value => {
           </div>
 
           <div>
-            <div class="mb-3 text-sm font-medium text-slate-500">评论</div>
+            <div class="mb-3 text-sm font-medium text-slate-500">评论（可选）</div>
             <el-input
               v-model="reviewForm.content"
               type="textarea"
