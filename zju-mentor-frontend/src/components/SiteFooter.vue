@@ -113,7 +113,14 @@ onMounted(() => {
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm text-slate-500">
       <div class="flex flex-wrap items-center gap-x-8 gap-y-2">
         <span>今日访问人数：{{ todayVisits ?? '--' }}</span>
-        <a href="#" class="font-medium text-slate-600 hover:text-blue-600 transition-colors" @click.prevent>下载全站数据</a>
+        <a
+          href="https://github.com/LiuyangSong-ZJU/ZJU-mentor/releases/tag/data-latest"
+          target="_blank"
+          rel="noreferrer"
+          class="font-medium text-slate-600 hover:text-blue-600 transition-colors"
+        >
+          下载全站数据
+        </a>
       </div>
       <div class="flex flex-wrap items-center justify-center gap-8">
         <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="openFeedbackDialog('error', '报告错误（导师信息/网站 bug）')">报告错误（导师信息/网站bug）</a>
