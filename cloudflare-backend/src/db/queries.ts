@@ -1,6 +1,6 @@
 export const METRIC_FIELDS = [
   { key: "ethics", label: "师德品行", shortLabel: "师德", column: "score_ethics" },
-  { key: "academic", label: "学术能力", shortLabel: "学术", column: "score_academic" },
+  { key: "academic", label: "学术能力与指导情况", shortLabel: "学术", column: "score_academic" },
   { key: "wlb", label: "WLB", shortLabel: "WLB", column: "score_wlb" },
   { key: "funding", label: "经费与津贴", shortLabel: "经费", column: "score_funding" },
   { key: "graduation", label: "毕业友好程度", shortLabel: "毕业", column: "score_graduation" },

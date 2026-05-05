@@ -30,7 +30,7 @@ onMounted(async () => {
   <div class="min-h-screen bg-gradient-to-b from-slate-50 via-white to-rose-50/30 p-6 flex flex-col">
     <main class="flex-1 flex items-center justify-center">
       <div class="w-full max-w-2xl">
-        <h1 class="mb-7 text-center text-5xl font-extrabold tracking-tight text-[#005BAC] sm:text-6xl">
+        <h1 class="mb-7 text-center text-5xl font-extrabold tracking-tight text-[#033e87] sm:text-6xl">
           浙大查导师
         </h1>
 

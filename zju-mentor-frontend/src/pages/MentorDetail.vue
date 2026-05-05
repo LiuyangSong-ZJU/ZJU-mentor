@@ -13,7 +13,7 @@ const route = useRoute()
 
 const metricDefinitions = [
   { key: 'ethics', shortLabel: '师德', label: '师德品行' },
-  { key: 'academic', shortLabel: '学术', label: '学术能力' },
+  { key: 'academic', shortLabel: '学术', label: '学术能力与指导情况' },
   { key: 'wlb', shortLabel: 'WLB', label: 'WLB' },
   { key: 'funding', shortLabel: '经费', label: '经费与津贴' },
   { key: 'graduation', shortLabel: '毕业', label: '毕业友好程度' },
