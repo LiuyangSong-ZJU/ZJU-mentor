@@ -44,7 +44,7 @@ jobs:
           gh release delete "data-latest" --yes --cleanup-tag || true
           gh release create "data-latest" "$PUBLIC_ARCHIVE" \
             --title "ZJU Mentor latest public data" \
-            --notes "Latest public data package generated at ${BACKUP_NAME} before the scheduled sync. It excludes site feedback, sync logs, visit identifiers, and raw comment vote identifiers."
+            --notes "请下载 zju-mentor-public-data-latest.tar.gz。下方 Source code 是 GitHub 自动生成的代码快照，不是全站数据包。数据包生成时间：${BACKUP_NAME}，生成于每日同步前；已排除站点反馈、同步日志、访问标识和原始投票标识。"
 
       - name: Trigger production sync
         env:
