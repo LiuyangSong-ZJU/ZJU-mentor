@@ -5,7 +5,8 @@ import TeacherSearchPanel from '../components/TeacherSearchPanel.vue'
 
 const portalStats = ref({
   reviewedTeacherCount: 0,
-  reviewCount: 0
+  reviewCount: 0,
+  linkCount: 0
 })
 
 const hasLoadedStats = ref(false)
@@ -29,7 +30,7 @@ onMounted(async () => {
   <div class="min-h-screen bg-gradient-to-b from-slate-50 via-white to-rose-50/30 p-6 flex flex-col">
     <main class="flex-1 flex items-center justify-center">
       <div class="w-full max-w-2xl">
-        <h1 class="mb-7 text-center text-5xl font-extrabold tracking-tight text-blue-700 sm:text-6xl">
+        <h1 class="mb-7 text-center text-5xl font-extrabold tracking-tight text-[#005BAC] sm:text-6xl">
           浙大查导师
         </h1>
 
@@ -41,7 +42,7 @@ onMounted(async () => {
         </div>
 
         <p v-if="hasLoadedStats" class="mt-7 text-center text-sm text-slate-500">
-          共有 {{ portalStats.reviewedTeacherCount }} 个老师被提交 {{ portalStats.reviewCount }} 条评价
+          共有 {{ portalStats.reviewedTeacherCount }} 个老师被提交 {{ portalStats.reviewCount }} 条评价 和 {{ portalStats.linkCount }} 条链接
         </p>
       </div>
     </main>

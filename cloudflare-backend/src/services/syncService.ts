@@ -2,6 +2,7 @@ import { launch } from "@cloudflare/playwright";
 import { d1All, d1First, d1Run } from "../db/queries";
 import type { CollegeSnapshot, Env, SyncStats, TeacherSnapshot } from "../types";
 import { AppError } from "../utils/response";
+import { bigUnitSortKey, UNASSIGNED_UNIT_NAME } from "../utils/normalize";
 
 const EXCLUDE_LIST = [
   "学院（系）",
@@ -547,10 +548,62 @@ export async function runFullSync(env: Env, mode = "crawler") {
   }
 }
 
+function groupCollegesByBigUnit(colleges: CollegeSnapshot[]) {
+  const groups = new Map<string, CollegeSnapshot[]>();
+
+  for (const college of colleges) {
+    const groupName = college.big_unit_name || UNASSIGNED_UNIT_NAME;
+    const current = groups.get(groupName) || [];
+    current.push(college);
+    groups.set(groupName, current);
+  }
+
+  return [...groups.entries()].sort(([left], [right]) => {
+    const [leftIndex, leftName] = bigUnitSortKey(left);
+    const [rightIndex, rightName] = bigUnitSortKey(right);
+    return leftIndex - rightIndex || leftName.localeCompare(rightName, "zh-Hans-CN");
+  });
+}
+
+function selectDailyBigUnit(groups: Array<[string, CollegeSnapshot[]]>, scheduledTime = Date.now()) {
+  if (groups.length === 0) {
+    throw new AppError(500, "没有可同步的学部。");
+  }
+
+  const dayIndex = Math.floor(scheduledTime / 86_400_000);
+  return groups[dayIndex % groups.length];
+}
+
+export async function runDailyBigUnitSync(env: Env, scheduledTime = Date.now()) {
+  const runId = await createSyncRun(env, "scheduled-big-unit");
+
+  try {
+    const colleges = await fetchLatestColleges(env);
+    const groups = groupCollegesByBigUnit(colleges);
+    const [bigUnitName, selectedColleges] = selectDailyBigUnit(groups, scheduledTime);
+    const teachers = await fetchLatestTeachers(env, selectedColleges);
+    const stats = await syncSnapshots(env, colleges, teachers);
+    const payload = {
+      stats,
+      scope: "big-unit",
+      bigUnitName,
+      groups: groups.map(([name, items]) => ({ name, colleges: items.length })),
+      colleges: selectedColleges.length,
+      teachers: teachers.length,
+    };
+
+    await finishSyncRun(env, runId, "success", payload);
+    return payload;
+  } catch (error) {
+    await finishSyncRun(env, runId, "failed", {}, String(error));
+    throw error;
+  }
+}
+
 export async function runScheduledSync(env: Env) {
   if ((env.SYNC_ENABLED || "true").toLowerCase() === "false") {
     return { skipped: true, reason: "SYNC_ENABLED=false" };
   }
 
-  return runFullSync(env, "scheduled-crawler");
+  return runDailyBigUnitSync(env);
 }

@@ -195,6 +195,7 @@ onMounted(() => {
             <el-option label="按评论数" value="reviews" />
             <el-option label="按平均分" value="score" />
             <el-option label="按快跑数" value="runaway" />
+            <el-option label="按链接数" value="links" />
           </el-select>
           <el-button type="primary" size="large" @click="loadRankings">刷新排行</el-button>
         </div>
@@ -297,9 +298,10 @@ onMounted(() => {
         <div class="mb-4 text-sm text-slate-500">共 {{ totalTeachers }} 位老师</div>
 
         <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div class="grid grid-cols-[minmax(0,1.2fr)_130px_130px_130px] gap-4 border-b border-slate-100 px-5 py-4 text-sm font-semibold text-slate-500">
+          <div class="grid grid-cols-[minmax(0,1.2fr)_110px_110px_110px_110px] gap-4 border-b border-slate-100 px-5 py-4 text-sm font-semibold text-slate-500">
             <div>老师</div>
             <div class="text-right">评论数</div>
+            <div class="text-right">链接数</div>
             <div class="text-right">平均分</div>
             <div class="text-right">快跑数</div>
           </div>
@@ -308,7 +310,7 @@ onMounted(() => {
             v-for="teacher in teachers"
             :key="teacher.uid"
             type="button"
-            class="grid w-full grid-cols-[minmax(0,1.2fr)_130px_130px_130px] gap-4 border-b border-slate-100 px-5 py-4 text-left transition-colors last:border-b-0 hover:bg-slate-50"
+            class="grid w-full grid-cols-[minmax(0,1.2fr)_110px_110px_110px_110px] gap-4 border-b border-slate-100 px-5 py-4 text-left transition-colors last:border-b-0 hover:bg-slate-50"
             @click="openTeacher(teacher.uid)"
           >
             <div class="min-w-0">
@@ -319,6 +321,7 @@ onMounted(() => {
               </div>
             </div>
             <div class="text-right text-base font-semibold text-slate-700">{{ teacher.reviewCount }}</div>
+            <div class="text-right text-base font-semibold text-slate-700">{{ teacher.linkCount }}</div>
             <div class="text-right text-base font-semibold text-slate-700">{{ teacher.averageScore.toFixed(1) }}</div>
             <div class="text-right text-base font-semibold text-rose-600">{{ teacher.runAwayVotes }}</div>
           </button>

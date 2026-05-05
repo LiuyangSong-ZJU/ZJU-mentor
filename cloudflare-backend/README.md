@@ -165,18 +165,19 @@ npm run backup:remote
 - `manifest.json`
   - 生成时间、表列表、行数、sha256
 
-保留策略由 `scripts/create-data-backup.mjs` 自动执行：
+本地/私有完整备份目录的保留策略由 `scripts/create-data-backup.mjs` 自动执行：
 
-- 一周内：全部保留
-- 超过一周但不到两个月：每 7 天保留一份，其余删除
-- 超过两个月：每个月保留一份，其余删除
+- 14 天内：全部保留
+- 14 天到 2 个月：每 7 天保留一份，其余删除
+- 2 个月到 1 年：每个月保留一份，其余删除
+- 1 年以上：每年保留一份，其余删除
 
 GitHub Actions 工作流在 `.github/workflows/backup-and-sync.yml`：
 
 1. 每天北京时间 02:50 或手动触发。
 2. 生成远程 D1 备份。
-3. 把公开包发布到 GitHub Release。
-4. 再调用线上 `/api/admin/sync/run` 执行增量抓取和同步。
+3. 把公开包发布到 GitHub Release 的 `data-latest`，每天覆盖旧 Release，不保留历史 Release。
+4. 再调用线上 `/api/admin/sync/run-daily` 执行每日一个学部的增量抓取和同步。
 
 需要在 GitHub 仓库 `Settings -> Secrets and variables -> Actions -> Repository secrets` 设置：
 

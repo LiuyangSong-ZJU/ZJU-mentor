@@ -39,16 +39,17 @@ jobs:
         run: |
           BACKUP_DIR="$(cat backups/latest-backup-path.txt)"
           BACKUP_NAME="$(basename "$BACKUP_DIR")"
-          PUBLIC_ARCHIVE="zju-mentor-public-data-${BACKUP_NAME}.tar.gz"
+          PUBLIC_ARCHIVE="zju-mentor-public-data-latest.tar.gz"
           tar -czf "$PUBLIC_ARCHIVE" -C "$BACKUP_DIR" manifest.json database-public.sql.gz json/public
-          gh release create "data-${BACKUP_NAME}" "$PUBLIC_ARCHIVE" \
-            --title "ZJU Mentor public data ${BACKUP_NAME}" \
-            --notes "Public data package generated before the scheduled sync. It excludes site feedback, sync logs, and raw comment vote identifiers."
+          gh release delete "data-latest" --yes --cleanup-tag || true
+          gh release create "data-latest" "$PUBLIC_ARCHIVE" \
+            --title "ZJU Mentor latest public data" \
+            --notes "Latest public data package generated at ${BACKUP_NAME} before the scheduled sync. It excludes site feedback, sync logs, visit identifiers, and raw comment vote identifiers."
 
       - name: Trigger production sync
         env:
           ZJU_MENTOR_SYNC_URL: ${{ secrets.ZJU_MENTOR_SYNC_URL }}
           ZJU_MENTOR_ADMIN_TOKEN: ${{ secrets.ZJU_MENTOR_ADMIN_TOKEN }}
         run: |
-          curl -fsS -X POST "${ZJU_MENTOR_SYNC_URL%/}/api/admin/sync/run" \
+          curl -fsS -X POST "${ZJU_MENTOR_SYNC_URL%/}/api/admin/sync/run-daily" \
             -H "X-Admin-Token: ${ZJU_MENTOR_ADMIN_TOKEN}"

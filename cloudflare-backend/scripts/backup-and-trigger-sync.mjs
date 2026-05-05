@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 
 const args = new Set(process.argv.slice(2));
 const mode = args.has("--local") ? "local" : "remote";
+const syncPath = args.has("--full") ? "/api/admin/sync/run" : "/api/admin/sync/run-daily";
 const rootDir = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const syncUrl = process.env.ZJU_MENTOR_SYNC_URL || (mode === "local" ? "http://127.0.0.1:8787" : "");
 const adminToken = process.env.ZJU_MENTOR_ADMIN_TOKEN || process.env.ADMIN_TOKEN || "";
@@ -30,7 +31,7 @@ if (!adminToken) {
 
 run("node", ["./scripts/create-data-backup.mjs", mode === "local" ? "--local" : "--remote"]);
 
-const response = await fetch(`${syncUrl.replace(/\/$/, "")}/api/admin/sync/run`, {
+const response = await fetch(`${syncUrl.replace(/\/$/, "")}${syncPath}`, {
   method: "POST",
   headers: {
     "X-Admin-Token": adminToken,

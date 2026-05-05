@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CaretBottom, CaretTop, Edit, Link } from '@element-plus/icons-vue'
+import { Edit, Link } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import SiteFooter from '../components/SiteFooter.vue'
@@ -16,7 +16,8 @@ const metricDefinitions = [
   { key: 'academic', shortLabel: '学术', label: '学术能力' },
   { key: 'wlb', shortLabel: 'WLB', label: 'WLB' },
   { key: 'funding', shortLabel: '经费', label: '经费与津贴' },
-  { key: 'outcome', shortLabel: '出路', label: '出路与毕业难度' }
+  { key: 'graduation', shortLabel: '毕业', label: '毕业友好程度' },
+  { key: 'outcome', shortLabel: '出路', label: '出路去向' }
 ]
 
 const mentor = ref({
@@ -547,22 +548,20 @@ watch(radarChartRef, value => {
                   <el-button
                     size="default"
                     :type="commentVotes[review.id] === 'up' ? 'primary' : 'default'"
-                    :icon="CaretTop"
                     :loading="isVotingComment(review.id)"
                     class="w-20 font-bold"
                     @click="submitCommentVote(review, 'up')"
                   >
-                    {{ review.upvotes }}
+                    👍 {{ review.upvotes }}
                   </el-button>
                   <el-button
                     size="default"
                     :type="commentVotes[review.id] === 'down' ? 'danger' : 'default'"
-                    :icon="CaretBottom"
                     :loading="isVotingComment(review.id)"
-                    class="w-16"
+                    class="w-20 font-bold"
                     @click="submitCommentVote(review, 'down')"
                   >
-                    {{ review.downvotes }}
+                    👎 {{ review.downvotes }}
                   </el-button>
                 </div>
               </div>

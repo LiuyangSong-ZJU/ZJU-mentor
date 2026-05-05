@@ -13,6 +13,7 @@ const searchText = ref('')
 const suggestions = ref([])
 const showSuggestionPanel = ref(false)
 const hasSearched = ref(false)
+const isSearching = ref(false)
 const exactMatches = ref([])
 const fuzzyMatches = ref([])
 let suggestionTimer = null
@@ -56,9 +57,11 @@ const doSearch = async () => {
   if (!q) {
     exactMatches.value = []
     fuzzyMatches.value = []
+    isSearching.value = false
     return
   }
 
+  isSearching.value = true
   try {
     const response = await fetch(`/api/teachers/search?q=${encodeURIComponent(q)}`)
     if (!response.ok) {
@@ -71,6 +74,8 @@ const doSearch = async () => {
   } catch (error) {
     exactMatches.value = []
     fuzzyMatches.value = []
+  } finally {
+    isSearching.value = false
   }
 }
 
@@ -139,8 +144,12 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="hasSearched" class="mt-5">
+      <div v-if="isSearching" class="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+        正在搜索，请稍候...
+      </div>
+
       <div
-        v-if="exactMatches.length > 0"
+        v-else-if="exactMatches.length > 0"
         class="mb-4 rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-sky-50 p-6 shadow-sm"
       >
         <div class="mb-2 text-xs font-semibold uppercase tracking-[0.24em] text-blue-700">精确匹配</div>
@@ -162,7 +171,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div
-        v-if="secondaryMatches.length > 0"
+        v-if="!isSearching && secondaryMatches.length > 0"
         class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
       >
         <div class="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-500">
@@ -205,7 +214,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div v-if="exactMatches.length === 0 && fuzzyMatches.length === 0" class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+      <div v-if="!isSearching && exactMatches.length === 0 && fuzzyMatches.length === 0" class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
         没有找到匹配的导师。
       </div>
     </div>

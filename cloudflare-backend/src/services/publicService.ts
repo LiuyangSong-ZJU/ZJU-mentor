@@ -246,7 +246,7 @@ export async function queryAllTeachersGroupedByInitial(env: Env) {
 }
 
 export async function queryPortalStats(env: Env) {
-  const row = await d1First<Record<string, unknown>>(
+  const reviewRow = await d1First<Record<string, unknown>>(
     env.DB,
     `
       SELECT
@@ -255,10 +255,49 @@ export async function queryPortalStats(env: Env) {
       FROM comments
     `,
   );
+  const linkRow = await d1First<Record<string, unknown>>(
+    env.DB,
+    "SELECT COUNT(*) AS link_count FROM cc98_links",
+  );
 
   return {
-    reviewedTeacherCount: Number(row?.reviewed_teacher_count || 0),
-    reviewCount: Number(row?.review_count || 0),
+    reviewedTeacherCount: Number(reviewRow?.reviewed_teacher_count || 0),
+    reviewCount: Number(reviewRow?.review_count || 0),
+    linkCount: Number(linkRow?.link_count || 0),
+  };
+}
+
+function todayKeyInChina() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+export async function recordTodayVisit(env: Env, payload: Record<string, unknown>) {
+  const visitorId = String(payload.visitorId || "").trim();
+  if (!visitorId || visitorId.length > 128) {
+    throw new AppError(400, "缺少有效的访问标识。");
+  }
+
+  const visitDate = todayKeyInChina();
+  await d1Run(
+    env.DB,
+    "INSERT OR IGNORE INTO daily_visits (visit_date, visitor_id) VALUES (?, ?)",
+    [visitDate, visitorId],
+  );
+
+  const row = await d1First<Record<string, unknown>>(
+    env.DB,
+    "SELECT COUNT(*) AS today_visits FROM daily_visits WHERE visit_date = ?",
+    [visitDate],
+  );
+
+  return {
+    date: visitDate,
+    todayVisits: Number(row?.today_visits || 0),
   };
 }
 
@@ -379,6 +418,7 @@ export async function queryTeacherReviews(env: Env, uid: string) {
         score_academic,
         score_wlb,
         score_funding,
+        score_graduation,
         score_outcome,
         is_run_away,
         upvotes,
@@ -445,6 +485,8 @@ export async function queryTeacherSummary(env: Env, uid: string) {
         COUNT(score_wlb) AS count_wlb,
         AVG(score_funding) AS avg_funding,
         COUNT(score_funding) AS count_funding,
+        AVG(score_graduation) AS avg_graduation,
+        COUNT(score_graduation) AS count_graduation,
         AVG(score_outcome) AS avg_outcome,
         COUNT(score_outcome) AS count_outcome
       FROM comments
@@ -523,9 +565,10 @@ export async function createTeacherReview(env: Env, uid: string, payload: Record
         score_academic,
         score_wlb,
         score_funding,
+        score_graduation,
         score_outcome,
         is_run_away
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       uid,
@@ -535,6 +578,7 @@ export async function createTeacherReview(env: Env, uid: string, payload: Record
       coerceScore(scores.academic),
       coerceScore(scores.wlb),
       coerceScore(scores.funding),
+      coerceScore(scores.graduation),
       coerceScore(scores.outcome),
       isRunAway ? 1 : 0,
     ],
@@ -721,6 +765,7 @@ export async function queryAdminTeacherRankings(env: Env, sortBy = "reviews", ke
         AVG(score_academic) AS avg_academic,
         AVG(score_wlb) AS avg_wlb,
         AVG(score_funding) AS avg_funding,
+        AVG(score_graduation) AS avg_graduation,
         AVG(score_outcome) AS avg_outcome,
         MAX(created_at) AS last_reviewed_at
       FROM comments
@@ -764,6 +809,7 @@ export async function queryAdminTeacherRankings(env: Env, sortBy = "reviews", ke
         Number(reviewRow?.avg_academic ?? NaN),
         Number(reviewRow?.avg_wlb ?? NaN),
         Number(reviewRow?.avg_funding ?? NaN),
+        Number(reviewRow?.avg_graduation ?? NaN),
         Number(reviewRow?.avg_outcome ?? NaN),
       ].map((value) => (Number.isFinite(value) ? value : null)));
 
@@ -784,6 +830,8 @@ export async function queryAdminTeacherRankings(env: Env, sortBy = "reviews", ke
     rankingRows.sort((left, right) => right.averageScore - left.averageScore || right.reviewCount - left.reviewCount);
   } else if (sortBy === "runaway") {
     rankingRows.sort((left, right) => right.runAwayVotes - left.runAwayVotes || right.reviewCount - left.reviewCount);
+  } else if (sortBy === "links") {
+    rankingRows.sort((left, right) => right.linkCount - left.linkCount || right.reviewCount - left.reviewCount);
   } else {
     sortBy = "reviews";
     rankingRows.sort((left, right) => right.reviewCount - left.reviewCount || right.averageScore - left.averageScore);

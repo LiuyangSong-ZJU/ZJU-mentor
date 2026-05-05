@@ -15,6 +15,7 @@ const FULL_TABLES = [
   "cc98_links",
   "comment_votes",
   "site_feedback",
+  "daily_visits",
   "sync_runs",
 ];
 const PUBLIC_TABLES = [
@@ -100,8 +101,11 @@ function pruneBackups() {
   }
 
   const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
   const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const twoWeeksMs = 14 * dayMs;
   const twoMonthsMs = 62 * 24 * 60 * 60 * 1000;
+  const oneYearMs = 365 * dayMs;
   const groups = new Map();
   const deleted = [];
 
@@ -113,13 +117,18 @@ function pruneBackups() {
 
   for (const entry of backupEntries) {
     const age = now - entry.date.getTime();
-    if (age <= weekMs) {
+    if (age <= twoWeeksMs) {
       continue;
     }
 
-    const key = age <= twoMonthsMs
-      ? `week-${Math.floor(entry.date.getTime() / weekMs)}`
-      : `month-${entry.date.getUTCFullYear()}-${String(entry.date.getUTCMonth() + 1).padStart(2, "0")}`;
+    let key;
+    if (age <= twoMonthsMs) {
+      key = `week-${Math.floor(entry.date.getTime() / weekMs)}`;
+    } else if (age <= oneYearMs) {
+      key = `month-${entry.date.getUTCFullYear()}-${String(entry.date.getUTCMonth() + 1).padStart(2, "0")}`;
+    } else {
+      key = `year-${entry.date.getUTCFullYear()}`;
+    }
 
     if (!groups.has(key)) {
       groups.set(key, entry.name);
@@ -175,4 +184,5 @@ const deletedBackups = shouldPrune ? pruneBackups() : [];
 console.log(`备份完成: ${backupDir}`);
 console.log(`完整恢复 SQL: database-full.sql.gz (${fullSqlArchive.bytes} bytes)`);
 console.log(`公开发布 SQL: database-public.sql.gz (${publicSqlArchive.bytes} bytes)`);
+console.log("保留策略：14天内全留；14天到2个月每周留一份；2个月到1年每月留一份；1年以上每年留一份。");
 console.log(`保留策略清理 ${deletedBackups.length} 个旧备份。`);

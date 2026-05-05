@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS comments (
   score_academic REAL CHECK(score_academic BETWEEN 0 AND 5),
   score_wlb REAL CHECK(score_wlb BETWEEN 0 AND 5),
   score_funding REAL CHECK(score_funding BETWEEN 0 AND 5),
+  score_graduation REAL CHECK(score_graduation BETWEEN 0 AND 5),
   score_outcome REAL CHECK(score_outcome BETWEEN 0 AND 5),
   is_run_away INTEGER NOT NULL DEFAULT 0,
   upvotes INTEGER DEFAULT 0,
@@ -74,6 +75,14 @@ CREATE TABLE IF NOT EXISTS site_feedback (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS daily_visits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  visit_date TEXT NOT NULL,
+  visitor_id TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (visit_date, visitor_id)
+);
+
 CREATE TABLE IF NOT EXISTS sync_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   mode TEXT NOT NULL,
@@ -95,4 +104,5 @@ CREATE INDEX IF NOT EXISTS idx_links_teacher_uid ON cc98_links (teacher_uid);
 CREATE INDEX IF NOT EXISTS idx_links_created_at ON cc98_links (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_site_feedback_created_at ON site_feedback (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_site_feedback_type ON site_feedback (feedback_type);
+CREATE INDEX IF NOT EXISTS idx_daily_visits_visit_date ON daily_visits (visit_date);
 CREATE INDEX IF NOT EXISTS idx_sync_runs_created_at ON sync_runs (created_at DESC);
