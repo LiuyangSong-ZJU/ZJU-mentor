@@ -246,11 +246,21 @@ export async function queryAllTeachersGroupedByInitial(env: Env) {
 }
 
 export async function queryPortalStats(env: Env) {
+  const submittedTeacherRow = await d1First<Record<string, unknown>>(
+    env.DB,
+    `
+      SELECT COUNT(*) AS submitted_teacher_count
+      FROM (
+        SELECT teacher_uid FROM comments
+        UNION
+        SELECT teacher_uid FROM cc98_links
+      )
+    `,
+  );
   const reviewRow = await d1First<Record<string, unknown>>(
     env.DB,
     `
       SELECT
-        COUNT(DISTINCT teacher_uid) AS reviewed_teacher_count,
         COUNT(*) AS review_count
       FROM comments
     `,
@@ -261,7 +271,7 @@ export async function queryPortalStats(env: Env) {
   );
 
   return {
-    reviewedTeacherCount: Number(reviewRow?.reviewed_teacher_count || 0),
+    reviewedTeacherCount: Number(submittedTeacherRow?.submitted_teacher_count || 0),
     reviewCount: Number(reviewRow?.review_count || 0),
     linkCount: Number(linkRow?.link_count || 0),
   };
