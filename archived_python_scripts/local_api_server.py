@@ -613,9 +613,6 @@ def create_teacher_review(uid: str, payload):
         'outcome': _coerce_score(scores.get('outcome')),
     }
 
-    if not content:
-        raise ValueError('评论内容不能为空。')
-
     conn = get_connection()
     try:
         if not _teacher_exists(conn, uid):

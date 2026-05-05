@@ -232,11 +232,6 @@ const submitReview = async () => {
   }
 
   const trimmedContent = reviewForm.content.trim()
-  if (!trimmedContent) {
-    ElMessage.error('请先填写评论内容。')
-    return
-  }
-
   isSubmittingReview.value = true
 
   try {
@@ -541,7 +536,7 @@ watch(radarChartRef, value => {
 
               <div class="flex items-start justify-between gap-8">
                 <div class="flex-1 text-slate-800 leading-relaxed">
-                  {{ review.content }}
+                  {{ review.content || '该评价没有文字评论' }}
                 </div>
 
                 <div class="flex flex-shrink-0 gap-3">

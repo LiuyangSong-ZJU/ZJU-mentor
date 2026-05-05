@@ -188,7 +188,7 @@ onMounted(() => {
             </div>
 
             <div class="text-sm leading-relaxed text-slate-700">
-              {{ review.content || '无正文' }}
+              {{ review.content || '该评价没有文字评论' }}
             </div>
           </article>
         </section>

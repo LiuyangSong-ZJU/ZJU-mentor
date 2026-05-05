@@ -556,10 +556,6 @@ export async function createTeacherReview(env: Env, uid: string, payload: Record
   const content = String(payload.content || "").trim();
   const isRunAway = Boolean(payload.isRunAway);
 
-  if (!content) {
-    throw new AppError(400, "评论内容不能为空。");
-  }
-
   if (!(await teacherExists(env, uid))) {
     throw new AppError(404, `找不到导师: ${uid}`);
   }
