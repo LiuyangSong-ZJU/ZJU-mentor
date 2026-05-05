@@ -26,4 +26,5 @@ cloudflare-backend/backups/
 cloudflare-backend/zju-mentor-public-data-latest.tar.gz
 
 key
+CLOUDFLARE_TOKEN
 *png
