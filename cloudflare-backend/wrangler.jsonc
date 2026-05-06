@@ -7,6 +7,16 @@
 		"nodejs_compat"
 	],
 	"upload_source_maps": true,
+	"routes": [
+		{
+			"pattern": "zjumentors.com",
+			"custom_domain": true
+		},
+		{
+			"pattern": "www.zjumentors.com",
+			"custom_domain": true
+		}
+	],
 	"d1_databases": [
 		{
 			"binding": "DB",

@@ -43,7 +43,6 @@ function main() {
 
   const lines: string[] = [];
   lines.push(fs.readFileSync(schemaPath, "utf8").trim());
-  lines.push("BEGIN TRANSACTION;");
 
   const seenBigUnits = new Set<string>();
   for (const college of colleges) {
@@ -79,7 +78,6 @@ function main() {
     }
   }
 
-  lines.push("COMMIT;");
   fs.writeFileSync(outputPath, `${lines.join("\n")}\n`, "utf8");
   console.log(`seed SQL written to ${outputPath}`);
 }

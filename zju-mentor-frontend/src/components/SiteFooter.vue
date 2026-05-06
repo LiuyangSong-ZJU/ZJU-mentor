@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 const VISITOR_ID_KEY = 'zju-mentor-visitor-id'
 const AUTHOR_QQ = '3488105113'
-const CC98_POST_URL = ''
+const CC98_POST_URL = 'https://www.cc98.org/topic/6497563/'
 
 const isFeedbackDialogOpen = ref(false)
 const isAboutDialogOpen = ref(false)
