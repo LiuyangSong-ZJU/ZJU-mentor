@@ -4,5 +4,7 @@ export {
   deleteSiteFeedback,
   queryAdminSiteFeedback,
   queryAdminTeacherRankings,
+  querySiteSettings,
   queryTeacherDetail,
+  updateSiteSettings,
 } from "./publicService";

@@ -4,6 +4,7 @@ import SiteFooter from '../components/SiteFooter.vue'
 import TeacherSearchPanel from '../components/TeacherSearchPanel.vue'
 
 const portalStats = ref({
+  isVisible: false,
   reviewedTeacherCount: 0,
   reviewCount: 0,
   linkCount: 0
@@ -41,7 +42,7 @@ onMounted(async () => {
           <RouterLink to="/browse/name" class="font-medium text-blue-600 hover:text-blue-700 hover:underline">按名字浏览</RouterLink>
         </div>
 
-        <p v-if="hasLoadedStats" class="mt-7 text-center text-sm text-slate-500">
+        <p v-if="hasLoadedStats && portalStats.isVisible" class="mt-7 text-center text-sm text-slate-500">
           共有 {{ portalStats.reviewedTeacherCount }} 个老师被提交 {{ portalStats.reviewCount }} 条评价 和 {{ portalStats.linkCount }} 条链接
         </p>
       </div>

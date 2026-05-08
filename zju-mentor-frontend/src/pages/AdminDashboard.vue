@@ -14,6 +14,13 @@ const feedbackItems = ref([])
 const syncRuns = ref([])
 const syncRunTotal = ref(0)
 const syncStatusError = ref('')
+const siteSettings = ref({
+  showPortalStats: false,
+  showDiscussionGroup: false,
+  authorContactMode: 'form'
+})
+const settingsError = ref('')
+const isSavingSettings = ref(false)
 const isLoading = ref(true)
 const errorMessage = ref('')
 
@@ -119,6 +126,99 @@ const loadSyncRuns = async () => {
   }
 }
 
+const loadSiteSettings = async () => {
+  settingsError.value = ''
+
+  try {
+    const response = await adminFetch('/api/admin/settings')
+    const payload = await response.json()
+
+    if (response.status === 401) {
+      clearAdminToken()
+      router.replace({
+        path: '/__admin__/login',
+        query: { redirect: '/__admin__' }
+      })
+      return
+    }
+
+    if (!response.ok) {
+      throw new Error(payload.message || `请求失败：${response.status}`)
+    }
+
+    siteSettings.value = {
+      showPortalStats: Boolean(payload.showPortalStats),
+      showDiscussionGroup: Boolean(payload.showDiscussionGroup),
+      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form'
+    }
+  } catch (error) {
+    settingsError.value = error.message || '加载站点设置失败。'
+  }
+}
+
+const saveSiteSettings = async nextSettings => {
+  const previousSettings = { ...siteSettings.value }
+  siteSettings.value = {
+    ...siteSettings.value,
+    ...nextSettings
+  }
+  isSavingSettings.value = true
+  settingsError.value = ''
+
+  try {
+    const response = await adminFetch('/api/admin/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        showPortalStats: siteSettings.value.showPortalStats,
+        showDiscussionGroup: siteSettings.value.showDiscussionGroup,
+        authorContactMode: siteSettings.value.authorContactMode
+      })
+    })
+    const payload = await response.json()
+
+    if (response.status === 401) {
+      clearAdminToken()
+      router.replace({
+        path: '/__admin__/login',
+        query: { redirect: '/__admin__' }
+      })
+      return
+    }
+
+    if (!response.ok) {
+      throw new Error(payload.message || `请求失败：${response.status}`)
+    }
+
+    siteSettings.value = {
+      showPortalStats: Boolean(payload.showPortalStats),
+      showDiscussionGroup: Boolean(payload.showDiscussionGroup),
+      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form'
+    }
+    ElMessage.success('站点设置已保存。')
+  } catch (error) {
+    siteSettings.value = previousSettings
+    settingsError.value = error.message || '保存站点设置失败。'
+    ElMessage.error(settingsError.value)
+  } finally {
+    isSavingSettings.value = false
+  }
+}
+
+const updatePortalStatsVisibility = value => {
+  saveSiteSettings({ showPortalStats: value })
+}
+
+const updateDiscussionGroupVisibility = value => {
+  saveSiteSettings({ showDiscussionGroup: value })
+}
+
+const updateAuthorContactMode = value => {
+  saveSiteSettings({ authorContactMode: value === 'direct' ? 'direct' : 'form' })
+}
+
 const handleDeleteFeedback = async item => {
   try {
     await ElMessageBox.confirm('确认删除这条反馈吗？此操作不可撤销。', '删除反馈', {
@@ -164,6 +264,7 @@ const logout = () => {
 onMounted(() => {
   loadRankings()
   loadSyncRuns()
+  loadSiteSettings()
   loadFeedback().catch(error => {
     ElMessage.error(error.message || '加载反馈失败。')
   })
@@ -245,6 +346,63 @@ onMounted(() => {
 
         <div v-if="latestSyncRun?.error_message" class="mt-4 rounded-2xl border border-rose-100 bg-rose-50 p-4 text-sm leading-relaxed text-rose-700">
           最近错误：{{ latestSyncRun.error_message }}
+        </div>
+      </section>
+
+      <section class="mb-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-800">门户展示设置</h2>
+            <p class="mt-1 text-xs text-slate-400">
+              控制首页统计、页脚讨论群与联系作者入口的公开展示方式。
+            </p>
+            <p v-if="settingsError" class="mt-2 text-xs text-rose-600">{{ settingsError }}</p>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">首页统计行</div>
+              <div class="mt-1 text-xs text-slate-400">显示“X 个老师被提交 X 条评价和 X 条链接”。</div>
+            </div>
+            <el-switch
+              v-model="siteSettings.showPortalStats"
+              :loading="isSavingSettings"
+              active-text="显示"
+              inactive-text="隐藏"
+              @change="updatePortalStatsVisibility"
+            />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">页脚讨论 QQ 群</div>
+              <div class="mt-1 text-xs text-slate-400">控制是否显示“欢迎加入讨论QQ群”。</div>
+            </div>
+            <el-switch
+              v-model="siteSettings.showDiscussionGroup"
+              :loading="isSavingSettings"
+              active-text="显示"
+              inactive-text="隐藏"
+              @change="updateDiscussionGroupVisibility"
+            />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">联系作者入口</div>
+              <div class="mt-1 text-xs text-slate-400">直接显示 QQ，或改成让访客留下联系方式。</div>
+            </div>
+            <el-radio-group
+              v-model="siteSettings.authorContactMode"
+              :disabled="isSavingSettings"
+              @change="updateAuthorContactMode"
+            >
+              <el-radio-button label="form">输入框</el-radio-button>
+              <el-radio-button label="direct">直接显示 QQ</el-radio-button>
+            </el-radio-group>
+          </div>
         </div>
       </section>
 

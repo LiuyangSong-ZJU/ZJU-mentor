@@ -7,6 +7,7 @@ import {
   queryAllTeachersGroupedByInitial,
   queryGroupedColleges,
   queryPortalStats,
+  querySiteSettings,
   recordTodayVisit,
   queryTeacherDetail,
   queryTeacherSearch,
@@ -28,6 +29,10 @@ export async function handlePublicRoute(request: Request, env: Env, pathname: st
 
   if (request.method === "GET" && pathname === "/api/stats") {
     return queryPortalStats(env);
+  }
+
+  if (request.method === "GET" && pathname === "/api/settings") {
+    return querySiteSettings(env);
   }
 
   if (request.method === "POST" && pathname === "/api/visits/today") {

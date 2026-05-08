@@ -17,6 +17,7 @@ const FULL_TABLES = [
   "site_feedback",
   "daily_visits",
   "sync_runs",
+  "site_settings",
 ];
 const PUBLIC_TABLES = [
   "big_departments",

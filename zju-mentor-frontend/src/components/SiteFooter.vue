@@ -10,16 +10,29 @@ const isFeedbackDialogOpen = ref(false)
 const isAboutDialogOpen = ref(false)
 const isSubmittingFeedback = ref(false)
 const todayVisits = ref(null)
+const siteSettings = ref({
+  showDiscussionGroup: false,
+  authorContactMode: 'form'
+})
 const feedbackDialogTitle = ref('反馈与建议')
+const feedbackDialogDescription = ref('可以写导师信息错误、网站 bug、功能建议或其他想法。提交后会出现在后台管理页。')
+const feedbackDialogPlaceholder = ref('请写下你想报告或建议的内容。')
 const feedbackForm = reactive({
   feedbackType: 'suggestion',
   content: ''
 })
 
-const openFeedbackDialog = (feedbackType, title) => {
+const openFeedbackDialog = (
+  feedbackType,
+  title,
+  description = '可以写导师信息错误、网站 bug、功能建议或其他想法。提交后会出现在后台管理页。',
+  placeholder = '请写下你想报告或建议的内容。'
+) => {
   feedbackForm.feedbackType = feedbackType
   feedbackForm.content = ''
   feedbackDialogTitle.value = title
+  feedbackDialogDescription.value = description
+  feedbackDialogPlaceholder.value = placeholder
   isFeedbackDialogOpen.value = true
 }
 
@@ -57,6 +70,16 @@ const submitFeedback = async () => {
 }
 
 const showAuthorContact = async () => {
+  if (siteSettings.value.authorContactMode === 'form') {
+    openFeedbackDialog(
+      'suggestion',
+      '联系作者',
+      '如果愿意，可以留下你的联系方式或想说的话。提交后会出现在后台管理页。',
+      '留下你的联系方式。'
+    )
+    return
+  }
+
   try {
     await ElMessageBox.alert(`QQ: ${AUTHOR_QQ}`, '联系作者', {
       confirmButtonText: '复制 QQ'
@@ -66,6 +89,26 @@ const showAuthorContact = async () => {
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.info(`QQ: ${AUTHOR_QQ}`)
+    }
+  }
+}
+
+const loadSiteSettings = async () => {
+  try {
+    const response = await fetch('/api/settings')
+    if (!response.ok) {
+      throw new Error(`请求失败：${response.status}`)
+    }
+
+    const payload = await response.json()
+    siteSettings.value = {
+      showDiscussionGroup: Boolean(payload.showDiscussionGroup),
+      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form'
+    }
+  } catch {
+    siteSettings.value = {
+      showDiscussionGroup: false,
+      authorContactMode: 'form'
     }
   }
 }
@@ -107,6 +150,7 @@ const loadTodayVisits = async () => {
 
 onMounted(() => {
   loadTodayVisits()
+  loadSiteSettings()
 })
 </script>
 
@@ -130,7 +174,7 @@ onMounted(() => {
         <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="showAuthorContact">联系作者</a>
         <span>
           <a href="#" class="hover:text-blue-600 transition-colors" @click.prevent="openFeedbackDialog('suggestion', '反馈与建议')">反馈与建议</a>
-          <span>（欢迎加入讨论QQ群：1098994681）</span>
+          <span v-if="siteSettings.showDiscussionGroup">（欢迎加入讨论QQ群：1098994681）</span>
         </span>
       </div>
     </div>
@@ -138,7 +182,7 @@ onMounted(() => {
     <el-dialog v-model="isFeedbackDialogOpen" :title="feedbackDialogTitle" width="560px">
       <div class="space-y-4">
         <p class="text-sm leading-relaxed text-slate-500">
-          可以写导师信息错误、网站 bug、功能建议或其他想法。提交后会出现在后台管理页。
+          {{ feedbackDialogDescription }}
         </p>
         <el-input
           v-model="feedbackForm.content"
@@ -146,7 +190,7 @@ onMounted(() => {
           :rows="7"
           maxlength="2000"
           show-word-limit
-          placeholder="请写下你想报告或建议的内容。"
+          :placeholder="feedbackDialogPlaceholder"
         />
       </div>
 

@@ -7,7 +7,9 @@ import {
   deleteSiteFeedback,
   queryAdminSiteFeedback,
   queryAdminTeacherRankings,
+  querySiteSettings,
   queryTeacherDetail,
+  updateSiteSettings,
 } from "../services/adminService";
 
 export async function handleAdminRoute(request: Request, env: Env, pathname: string) {
@@ -33,6 +35,15 @@ export async function handleAdminRoute(request: Request, env: Env, pathname: str
 
   if (request.method === "GET" && pathname === "/api/admin/feedback") {
     return queryAdminSiteFeedback(env);
+  }
+
+  if (request.method === "GET" && pathname === "/api/admin/settings") {
+    return querySiteSettings(env);
+  }
+
+  if (request.method === "PUT" && pathname === "/api/admin/settings") {
+    const payload = await readJson<Record<string, unknown>>(request);
+    return updateSiteSettings(env, payload);
   }
 
   const teacherMatch = pathname.match(/^\/api\/admin\/teachers\/([^/]+)$/);

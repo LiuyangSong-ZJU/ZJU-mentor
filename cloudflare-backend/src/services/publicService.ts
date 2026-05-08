@@ -246,6 +246,7 @@ export async function queryAllTeachersGroupedByInitial(env: Env) {
 }
 
 export async function queryPortalStats(env: Env) {
+  const settings = await querySiteSettings(env);
   const submittedTeacherRow = await d1First<Record<string, unknown>>(
     env.DB,
     `
@@ -271,10 +272,59 @@ export async function queryPortalStats(env: Env) {
   );
 
   return {
+    isVisible: settings.showPortalStats,
     reviewedTeacherCount: Number(submittedTeacherRow?.submitted_teacher_count || 0),
     reviewCount: Number(reviewRow?.review_count || 0),
     linkCount: Number(linkRow?.link_count || 0),
   };
+}
+
+export async function querySiteSettings(env: Env) {
+  const rows = await d1All<Record<string, unknown>>(
+    env.DB,
+    "SELECT key, value FROM site_settings WHERE key IN ('show_portal_stats', 'show_discussion_group', 'author_contact_mode')",
+  );
+  const settings = new Map(rows.map((row) => [String(row.key), String(row.value)]));
+  const contactMode = settings.get("author_contact_mode") === "direct" ? "direct" : "form";
+
+  return {
+    showPortalStats: settings.get("show_portal_stats") === "true",
+    showDiscussionGroup: settings.get("show_discussion_group") === "true",
+    authorContactMode: contactMode,
+  };
+}
+
+export async function updateSiteSettings(env: Env, payload: Record<string, unknown>) {
+  const currentSettings = await querySiteSettings(env);
+  const nextSettings = {
+    showPortalStats:
+      typeof payload.showPortalStats === "boolean" ? payload.showPortalStats : currentSettings.showPortalStats,
+    showDiscussionGroup:
+      typeof payload.showDiscussionGroup === "boolean" ? payload.showDiscussionGroup : currentSettings.showDiscussionGroup,
+    authorContactMode: payload.authorContactMode === "direct" ? "direct" : payload.authorContactMode === "form" ? "form" : currentSettings.authorContactMode,
+  };
+
+  const settingsToWrite = [
+    ["show_portal_stats", nextSettings.showPortalStats ? "true" : "false"],
+    ["show_discussion_group", nextSettings.showDiscussionGroup ? "true" : "false"],
+    ["author_contact_mode", nextSettings.authorContactMode],
+  ];
+
+  for (const [key, value] of settingsToWrite) {
+    await d1Run(
+      env.DB,
+      `
+        INSERT INTO site_settings (key, value, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value,
+          updated_at = CURRENT_TIMESTAMP
+      `,
+      [key, value],
+    );
+  }
+
+  return querySiteSettings(env);
 }
 
 function todayKeyInChina() {

@@ -93,6 +93,16 @@ CREATE TABLE IF NOT EXISTS sync_runs (
   finished_at DATETIME
 );
 
+CREATE TABLE IF NOT EXISTS site_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_portal_stats', 'false');
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_discussion_group', 'false');
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('author_contact_mode', 'form');
+
 CREATE INDEX IF NOT EXISTS idx_departments_big_dept_id ON departments (big_dept_id);
 CREATE INDEX IF NOT EXISTS idx_rel_teacher_uid ON teacher_department_relations (teacher_uid);
 CREATE INDEX IF NOT EXISTS idx_rel_college_id ON teacher_department_relations (college_id);
