@@ -738,7 +738,9 @@ watch(radarChartRef, value => {
           </div>
 
           <el-checkbox v-model="reviewForm.confirmed" class="review-confirm-checkbox">
-            我确认评价基于本人经历或可核实信息；不包含侮辱、人身攻击、隐私信息、虚假信息或未经证实的严重违法违纪指控。
+            <span class="review-confirm-text">
+              我确认评价基于本人经历或可核实信息；不包含侮辱、人身攻击、隐私信息、虚假信息或未经证实的严重违法违纪指控。
+            </span>
           </el-checkbox>
         </section>
       </div>
@@ -1006,6 +1008,26 @@ watch(radarChartRef, value => {
 
 .runaway-flag-button {
   border-radius: 6px;
+}
+
+.review-confirm-checkbox {
+  display: flex;
+  align-items: flex-start;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.review-confirm-checkbox :deep(.el-checkbox__label) {
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.7;
+}
+
+.review-confirm-text {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 @media (min-width: 1024px) {

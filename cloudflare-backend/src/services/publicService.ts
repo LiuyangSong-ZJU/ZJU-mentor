@@ -692,7 +692,8 @@ export async function createTeacherLink(env: Env, uid: string, payload: Record<s
 
 export async function createSiteFeedback(env: Env, payload: Record<string, unknown>) {
   const rawType = String(payload.feedbackType || "suggestion").trim().toLowerCase();
-  const feedbackType = rawType === "error" || rawType === "complaint" ? rawType : "suggestion";
+  // 旧 D1 表有 CHECK 约束，只允许 error/suggestion；投诉按 error 入库，展示时再识别。
+  const feedbackType = rawType === "error" || rawType === "complaint" ? "error" : "suggestion";
   const content = String(payload.content || "").trim();
 
   if (!content) {
@@ -799,7 +800,9 @@ export async function queryAdminSiteFeedback(env: Env) {
   return {
     feedback: rows.map((row) => ({
       id: Number(row.id),
-      feedbackType: String(row.feedback_type || "suggestion"),
+      feedbackType: String(row.content || "").startsWith("评论投诉/反馈")
+        ? "complaint"
+        : String(row.feedback_type || "suggestion"),
       content: String(row.content || ""),
       date: String(row.created_at || ""),
     })),
