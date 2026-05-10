@@ -30,7 +30,27 @@ const totalTeachers = computed(() => teachers.value.length)
 const totalSyncRuns = computed(() => syncRunTotal.value)
 const latestSyncRun = computed(() => syncRuns.value[0] || null)
 
-const feedbackTypeLabel = item => item.feedbackType === 'error' ? '报告错误' : '反馈建议'
+const feedbackTypeLabel = item => {
+  if (item.feedbackType === 'error') {
+    return '报告错误'
+  }
+  if (item.feedbackType === 'complaint') {
+    return '投诉反馈'
+  }
+
+  return '反馈建议'
+}
+
+const feedbackTypeClass = item => {
+  if (item.feedbackType === 'error') {
+    return 'bg-rose-50 text-rose-700'
+  }
+  if (item.feedbackType === 'complaint') {
+    return 'bg-purple-50 text-purple-700'
+  }
+
+  return 'bg-blue-50 text-blue-700'
+}
 const syncStatusLabel = status => {
   if (status === 'success') {
     return '成功'
@@ -473,7 +493,7 @@ onMounted(() => {
               <span>#{{ item.id }}</span>
               <span
                 class="rounded px-2 py-1 text-xs font-semibold"
-                :class="item.feedbackType === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'"
+                :class="feedbackTypeClass(item)"
               >
                 {{ feedbackTypeLabel(item) }}
               </span>

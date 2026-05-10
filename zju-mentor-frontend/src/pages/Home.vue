@@ -45,6 +45,10 @@ onMounted(async () => {
         <p v-if="hasLoadedStats && portalStats.isVisible" class="mt-7 text-center text-sm text-slate-500">
           共有 {{ portalStats.reviewedTeacherCount }} 个老师被提交 {{ portalStats.reviewCount }} 条评价 和 {{ portalStats.linkCount }} 条链接
         </p>
+
+        <p class="mx-auto mt-12 max-w-xl rounded-2xl border border-slate-200/70 bg-white/70 px-5 py-4 text-center text-sm leading-7 text-slate-500 shadow-sm">
+          本站评价来自用户投稿，不代表本站立场；相关信息仅供参考，请结合导师主页、学院公开信息、在读学生反馈等多渠道核实。
+        </p>
       </div>
     </main>
 

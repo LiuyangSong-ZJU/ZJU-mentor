@@ -692,7 +692,7 @@ export async function createTeacherLink(env: Env, uid: string, payload: Record<s
 
 export async function createSiteFeedback(env: Env, payload: Record<string, unknown>) {
   const rawType = String(payload.feedbackType || "suggestion").trim().toLowerCase();
-  const feedbackType = rawType === "error" ? "error" : "suggestion";
+  const feedbackType = rawType === "error" || rawType === "complaint" ? rawType : "suggestion";
   const content = String(payload.content || "").trim();
 
   if (!content) {

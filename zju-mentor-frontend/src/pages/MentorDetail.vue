@@ -47,6 +47,8 @@ const isReviewDialogOpen = ref(false)
 const isLinkDialogOpen = ref(false)
 const isSubmittingReview = ref(false)
 const isSubmittingLink = ref(false)
+const isComplaintDialogOpen = ref(false)
+const isSubmittingComplaint = ref(false)
 const votingCommentIds = ref({})
 const commentVotes = ref(loadCommentVotes())
 
@@ -54,6 +56,12 @@ const reviewForm = reactive({
   scores: Object.fromEntries(metricDefinitions.map(metric => [metric.key, 0])),
   isRunAway: false,
   identity: '',
+  content: '',
+  confirmed: false
+})
+
+const complaintForm = reactive({
+  reviewId: null,
   content: ''
 })
 
@@ -112,6 +120,7 @@ const resetReviewForm = () => {
   reviewForm.isRunAway = false
   reviewForm.identity = ''
   reviewForm.content = ''
+  reviewForm.confirmed = false
 }
 
 const resetLinkForm = () => {
@@ -231,6 +240,11 @@ const submitReview = async () => {
     return
   }
 
+  if (!reviewForm.confirmed) {
+    ElMessage.error('请先勾选确认评价内容规范。')
+    return
+  }
+
   const trimmedContent = reviewForm.content.trim()
   isSubmittingReview.value = true
 
@@ -263,6 +277,55 @@ const submitReview = async () => {
     ElMessage.error(error.message || '提交评价失败。')
   } finally {
     isSubmittingReview.value = false
+  }
+}
+
+const openComplaintDialog = review => {
+  complaintForm.reviewId = review.id
+  complaintForm.content = ''
+  isComplaintDialogOpen.value = true
+}
+
+const submitComplaint = async () => {
+  const content = complaintForm.content.trim()
+  if (!content) {
+    ElMessage.error('请先填写投诉/反馈内容。')
+    return
+  }
+
+  const reviewUrl = `${window.location.origin}${window.location.pathname}#comment-${complaintForm.reviewId}`
+  const fullContent = [
+    `评论投诉/反馈`,
+    `导师：${mentor.value.name || currentTeacherUid.value}`,
+    `评论 ID：${complaintForm.reviewId}`,
+    `具体链接：${reviewUrl}`,
+    '',
+    content
+  ].join('\n')
+
+  isSubmittingComplaint.value = true
+  try {
+    const response = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        feedbackType: 'complaint',
+        content: fullContent
+      })
+    })
+    const payload = await response.json()
+    if (!response.ok) {
+      throw new Error(payload.message || `请求失败：${response.status}`)
+    }
+
+    isComplaintDialogOpen.value = false
+    ElMessage.success('已收到投诉/反馈。')
+  } catch (error) {
+    ElMessage.error(error.message || '提交投诉/反馈失败。')
+  } finally {
+    isSubmittingComplaint.value = false
   }
 }
 
@@ -508,7 +571,7 @@ watch(radarChartRef, value => {
           </div>
 
           <div v-else class="divide-y divide-slate-100">
-            <article v-for="review in reviews" :key="review.id" class="p-5">
+            <article v-for="review in reviews" :id="`comment-${review.id}`" :key="review.id" class="p-5">
               <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-slate-400">
                 <span>{{ formatDisplayDate(review.date) }}</span>
                 <span v-if="review.identity" class="rounded-sm bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
@@ -557,6 +620,15 @@ watch(radarChartRef, value => {
                     @click="submitCommentVote(review, 'down')"
                   >
                     👎 {{ review.downvotes }}
+                  </el-button>
+                  <el-button
+                    size="default"
+                    color="#7c3aed"
+                    plain
+                    class="font-bold"
+                    @click="openComplaintDialog(review)"
+                  >
+                    投诉/反馈
                   </el-button>
                 </div>
               </div>
@@ -664,13 +736,40 @@ watch(radarChartRef, value => {
               placeholder="写下你对这位导师的真实体验。"
             />
           </div>
+
+          <el-checkbox v-model="reviewForm.confirmed" class="review-confirm-checkbox">
+            我确认评价基于本人经历或可核实信息；不包含侮辱、人身攻击、隐私信息、虚假信息或未经证实的严重违法违纪指控。
+          </el-checkbox>
         </section>
       </div>
 
       <template #footer>
         <div class="flex justify-end gap-3">
           <el-button @click="isReviewDialogOpen = false">取消</el-button>
-          <el-button type="primary" :loading="isSubmittingReview" @click="submitReview">提交评价</el-button>
+          <el-button type="primary" :disabled="!reviewForm.confirmed" :loading="isSubmittingReview" @click="submitReview">提交评价</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="isComplaintDialogOpen" title="投诉/反馈" width="560px">
+      <div class="space-y-4">
+        <p class="text-sm leading-relaxed text-slate-500">
+          如认为本评价内容侵害名誉权、隐私权或其他权益，请提交具体链接、争议内容、身份信息、初步证据和处理请求。本站将在收到完整有效通知后 72 小时内审查处理；必要时先行隐藏争议内容。
+        </p>
+        <el-input
+          v-model="complaintForm.content"
+          type="textarea"
+          :rows="7"
+          maxlength="1500"
+          show-word-limit
+          placeholder="请写下具体链接、争议内容、身份信息、初步证据和处理请求。"
+        />
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <el-button @click="isComplaintDialogOpen = false">取消</el-button>
+          <el-button type="primary" :loading="isSubmittingComplaint" @click="submitComplaint">提交</el-button>
         </div>
       </template>
     </el-dialog>
