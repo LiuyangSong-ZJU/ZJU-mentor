@@ -12,7 +12,9 @@ const isSubmittingFeedback = ref(false)
 const todayVisits = ref(null)
 const siteSettings = ref({
   showDiscussionGroup: false,
-  authorContactMode: 'form'
+  authorContactMode: 'form',
+  showAboutLinks: false,
+  showDataDownload: false
 })
 const feedbackDialogTitle = ref('反馈与建议')
 const feedbackDialogDescription = ref('可以写导师信息错误、网站 bug、功能建议或其他想法。提交后会出现在后台管理页。')
@@ -103,12 +105,16 @@ const loadSiteSettings = async () => {
     const payload = await response.json()
     siteSettings.value = {
       showDiscussionGroup: Boolean(payload.showDiscussionGroup),
-      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form'
+      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form',
+      showAboutLinks: Boolean(payload.showAboutLinks),
+      showDataDownload: Boolean(payload.showDataDownload)
     }
   } catch {
     siteSettings.value = {
       showDiscussionGroup: false,
-      authorContactMode: 'form'
+      authorContactMode: 'form',
+      showAboutLinks: false,
+      showDataDownload: false
     }
   }
 }
@@ -160,6 +166,7 @@ onMounted(() => {
       <div class="flex flex-wrap items-center gap-x-8 gap-y-2">
         <span>今日访问人数：{{ todayVisits ?? '--' }}</span>
         <a
+          v-if="siteSettings.showDataDownload"
           href="https://github.com/LiuyangSong-ZJU/ZJU-mentor/releases/tag/data-latest"
           target="_blank"
           rel="noreferrer"
@@ -204,7 +211,7 @@ onMounted(() => {
 
     <el-dialog v-model="isAboutDialogOpen" title="关于本站" width="420px">
       <div class="space-y-5 text-sm">
-        <div class="space-y-3">
+        <div v-if="siteSettings.showAboutLinks" class="space-y-3">
           <a
             :href="CC98_POST_URL || '#'"
             :target="CC98_POST_URL ? '_blank' : undefined"
@@ -226,10 +233,14 @@ onMounted(() => {
 
         <div class="rounded-2xl bg-slate-50/70 p-4 text-xs leading-6 text-slate-400">
           <div class="font-semibold text-slate-500">本站宗旨与特点：</div>
-          <div>1. 评价数据与代码全开源</div>
+          <div>1. 网站代码开源</div>
           <div>2. 匿名评价</div>
           <div>3. 所有评价均为选填</div>
           <div>4. 可添加外链如 CC98 帖子链接</div>
+        </div>
+
+        <div class="rounded-2xl border border-amber-100 bg-amber-50/60 p-4 text-xs leading-6 text-amber-700">
+          如认为评价内容侵害名誉权、隐私权或其他权益，请提交具体链接、争议内容、身份信息、初步证据和处理请求。本站收到后会在 72 小时内审查处理；必要时先行隐藏争议内容。
         </div>
       </div>
     </el-dialog>

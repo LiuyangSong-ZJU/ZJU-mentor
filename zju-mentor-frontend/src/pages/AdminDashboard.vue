@@ -17,7 +17,9 @@ const syncStatusError = ref('')
 const siteSettings = ref({
   showPortalStats: false,
   showDiscussionGroup: false,
-  authorContactMode: 'form'
+  authorContactMode: 'form',
+  showAboutLinks: false,
+  showDataDownload: false
 })
 const settingsError = ref('')
 const isSavingSettings = ref(false)
@@ -149,7 +151,9 @@ const loadSiteSettings = async () => {
     siteSettings.value = {
       showPortalStats: Boolean(payload.showPortalStats),
       showDiscussionGroup: Boolean(payload.showDiscussionGroup),
-      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form'
+      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form',
+      showAboutLinks: Boolean(payload.showAboutLinks),
+      showDataDownload: Boolean(payload.showDataDownload)
     }
   } catch (error) {
     settingsError.value = error.message || '加载站点设置失败。'
@@ -174,7 +178,9 @@ const saveSiteSettings = async nextSettings => {
       body: JSON.stringify({
         showPortalStats: siteSettings.value.showPortalStats,
         showDiscussionGroup: siteSettings.value.showDiscussionGroup,
-        authorContactMode: siteSettings.value.authorContactMode
+        authorContactMode: siteSettings.value.authorContactMode,
+        showAboutLinks: siteSettings.value.showAboutLinks,
+        showDataDownload: siteSettings.value.showDataDownload
       })
     })
     const payload = await response.json()
@@ -195,7 +201,9 @@ const saveSiteSettings = async nextSettings => {
     siteSettings.value = {
       showPortalStats: Boolean(payload.showPortalStats),
       showDiscussionGroup: Boolean(payload.showDiscussionGroup),
-      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form'
+      authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form',
+      showAboutLinks: Boolean(payload.showAboutLinks),
+      showDataDownload: Boolean(payload.showDataDownload)
     }
     ElMessage.success('站点设置已保存。')
   } catch (error) {
@@ -217,6 +225,14 @@ const updateDiscussionGroupVisibility = value => {
 
 const updateAuthorContactMode = value => {
   saveSiteSettings({ authorContactMode: value === 'direct' ? 'direct' : 'form' })
+}
+
+const updateAboutLinksVisibility = value => {
+  saveSiteSettings({ showAboutLinks: value })
+}
+
+const updateDataDownloadVisibility = value => {
+  saveSiteSettings({ showDataDownload: value })
 }
 
 const handleDeleteFeedback = async item => {
@@ -402,6 +418,34 @@ onMounted(() => {
               <el-radio-button label="form">输入框</el-radio-button>
               <el-radio-button label="direct">直接显示 QQ</el-radio-button>
             </el-radio-group>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">关于本站外链</div>
+              <div class="mt-1 text-xs text-slate-400">控制是否展示“CC98帖子”和“Github 仓库”。</div>
+            </div>
+            <el-switch
+              v-model="siteSettings.showAboutLinks"
+              :loading="isSavingSettings"
+              active-text="显示"
+              inactive-text="隐藏"
+              @change="updateAboutLinksVisibility"
+            />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">下载全站数据</div>
+              <div class="mt-1 text-xs text-slate-400">控制页脚是否展示“下载全站数据”。</div>
+            </div>
+            <el-switch
+              v-model="siteSettings.showDataDownload"
+              :loading="isSavingSettings"
+              active-text="显示"
+              inactive-text="隐藏"
+              @change="updateDataDownloadVisibility"
+            />
           </div>
         </div>
       </section>

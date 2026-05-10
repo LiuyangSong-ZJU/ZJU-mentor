@@ -102,6 +102,8 @@ CREATE TABLE IF NOT EXISTS site_settings (
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_portal_stats', 'false');
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_discussion_group', 'false');
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('author_contact_mode', 'form');
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_about_links', 'false');
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_data_download', 'false');
 
 CREATE INDEX IF NOT EXISTS idx_departments_big_dept_id ON departments (big_dept_id);
 CREATE INDEX IF NOT EXISTS idx_rel_teacher_uid ON teacher_department_relations (teacher_uid);

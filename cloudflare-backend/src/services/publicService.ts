@@ -280,9 +280,17 @@ export async function queryPortalStats(env: Env) {
 }
 
 export async function querySiteSettings(env: Env) {
+  const settingKeys = [
+    "show_portal_stats",
+    "show_discussion_group",
+    "author_contact_mode",
+    "show_about_links",
+    "show_data_download",
+  ];
   const rows = await d1All<Record<string, unknown>>(
     env.DB,
-    "SELECT key, value FROM site_settings WHERE key IN ('show_portal_stats', 'show_discussion_group', 'author_contact_mode')",
+    `SELECT key, value FROM site_settings WHERE key IN (${settingKeys.map(() => "?").join(", ")})`,
+    settingKeys,
   );
   const settings = new Map(rows.map((row) => [String(row.key), String(row.value)]));
   const contactMode = settings.get("author_contact_mode") === "direct" ? "direct" : "form";
@@ -291,6 +299,8 @@ export async function querySiteSettings(env: Env) {
     showPortalStats: settings.get("show_portal_stats") === "true",
     showDiscussionGroup: settings.get("show_discussion_group") === "true",
     authorContactMode: contactMode,
+    showAboutLinks: settings.get("show_about_links") === "true",
+    showDataDownload: settings.get("show_data_download") === "true",
   };
 }
 
@@ -302,12 +312,18 @@ export async function updateSiteSettings(env: Env, payload: Record<string, unkno
     showDiscussionGroup:
       typeof payload.showDiscussionGroup === "boolean" ? payload.showDiscussionGroup : currentSettings.showDiscussionGroup,
     authorContactMode: payload.authorContactMode === "direct" ? "direct" : payload.authorContactMode === "form" ? "form" : currentSettings.authorContactMode,
+    showAboutLinks:
+      typeof payload.showAboutLinks === "boolean" ? payload.showAboutLinks : currentSettings.showAboutLinks,
+    showDataDownload:
+      typeof payload.showDataDownload === "boolean" ? payload.showDataDownload : currentSettings.showDataDownload,
   };
 
   const settingsToWrite = [
     ["show_portal_stats", nextSettings.showPortalStats ? "true" : "false"],
     ["show_discussion_group", nextSettings.showDiscussionGroup ? "true" : "false"],
     ["author_contact_mode", nextSettings.authorContactMode],
+    ["show_about_links", nextSettings.showAboutLinks ? "true" : "false"],
+    ["show_data_download", nextSettings.showDataDownload ? "true" : "false"],
   ];
 
   for (const [key, value] of settingsToWrite) {
