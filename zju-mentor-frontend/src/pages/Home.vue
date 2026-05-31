@@ -71,15 +71,15 @@ onMounted(async () => {
         <p class="mx-auto mt-12 max-w-xl rounded-2xl border border-slate-200/70 bg-white/70 px-5 py-4 text-center text-sm leading-7 text-slate-500 shadow-sm">
           本站评价来自用户投稿，不代表本站立场；相关信息仅供参考，请结合导师主页、学院公开信息、在读学生反馈等多渠道核实。
         </p>
+
+        <div
+          v-if="siteSettings.showHomeAnnouncement && siteSettings.homeAnnouncement"
+          class="mt-8 max-w-sm rounded-3xl border border-blue-100 bg-white/90 px-5 py-4 text-left text-sm leading-7 text-slate-600 shadow-xl shadow-blue-100/40 backdrop-blur"
+        >
+          {{ siteSettings.homeAnnouncement }}
+        </div>
       </div>
     </main>
-
-    <div
-      v-if="siteSettings.showHomeAnnouncement && siteSettings.homeAnnouncement"
-      class="fixed bottom-5 left-5 z-20 max-w-sm rounded-3xl border border-blue-100 bg-white/90 px-5 py-4 text-sm leading-7 text-slate-600 shadow-xl shadow-blue-100/40 backdrop-blur"
-    >
-      {{ siteSettings.homeAnnouncement }}
-    </div>
 
     <SiteFooter />
   </div>
