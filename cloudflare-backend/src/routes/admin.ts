@@ -5,6 +5,7 @@ import {
   deleteCommentRecord,
   deleteLinkRecord,
   deleteSiteFeedback,
+  queryAdminPublicDataExport,
   queryAdminSiteFeedback,
   queryAdminTeacherRankings,
   querySiteSettings,
@@ -39,6 +40,10 @@ export async function handleAdminRoute(request: Request, env: Env, pathname: str
 
   if (request.method === "GET" && pathname === "/api/admin/settings") {
     return querySiteSettings(env);
+  }
+
+  if (request.method === "GET" && pathname === "/api/admin/export/public-data") {
+    return queryAdminPublicDataExport(env);
   }
 
   if (request.method === "PUT" && pathname === "/api/admin/settings") {

@@ -29,6 +29,67 @@ const BIG_UNITS = [
   "其他单位",
 ];
 
+async function isAutoTeacherSyncEnabled(env: Env) {
+  const row = await d1First<{ value: string }>(
+    env.DB,
+    "SELECT value FROM site_settings WHERE key = 'auto_teacher_sync'",
+  );
+  return row?.value === "true";
+}
+
+function validateCollegeSnapshots(value: unknown): CollegeSnapshot[] {
+  if (!Array.isArray(value)) {
+    throw new AppError(400, "colleges 必须是数组。");
+  }
+
+  return value.map((item: any) => {
+    if (!item?.college_id || !item?.college_name) {
+      throw new AppError(400, "单位数据缺少 college_id 或 college_name。");
+    }
+
+    return {
+      college_id: String(item.college_id),
+      college_name: String(item.college_name),
+      level: item.level === undefined || item.level === null ? null : Number(item.level),
+      big_unit_id: item.big_unit_id ? String(item.big_unit_id) : null,
+      big_unit_name: item.big_unit_name ? String(item.big_unit_name) : null,
+    };
+  });
+}
+
+function validateTeacherSnapshots(value: unknown): TeacherSnapshot[] {
+  if (!Array.isArray(value)) {
+    throw new AppError(400, "teachers 必须是数组。");
+  }
+
+  return value.map((item: any) => {
+    if (!item?.uid || !item?.name) {
+      throw new AppError(400, "教师数据缺少 uid 或 name。");
+    }
+
+    return {
+      uid: String(item.uid),
+      name: String(item.name),
+      work_title: String(item.work_title || ""),
+      department: String(item.department || ""),
+      mapping_name: item.mapping_name === undefined || item.mapping_name === null ? null : String(item.mapping_name),
+      profile_url: String(item.profile_url || ""),
+      departments: Array.isArray(item.departments)
+        ? item.departments.map((department: any) => {
+            if (!department?.college_id || !department?.college_name) {
+              throw new AppError(400, `教师 ${item.uid} 的 departments 缺少 college_id 或 college_name。`);
+            }
+
+            return {
+              college_id: String(department.college_id),
+              college_name: String(department.college_name),
+            };
+          })
+        : [],
+    };
+  });
+}
+
 function parseCollegesTree(
   collegeList: any[],
   resultList: CollegeSnapshot[],
@@ -528,6 +589,10 @@ export async function listSyncRuns(env: Env) {
 }
 
 export async function runFullSync(env: Env, mode = "crawler") {
+  if (mode !== "manual-crawler" && !(await isAutoTeacherSyncEnabled(env))) {
+    return { skipped: true, reason: "auto_teacher_sync=false" };
+  }
+
   const runId = await createSyncRun(env, mode);
 
   try {
@@ -575,6 +640,10 @@ function selectDailyBigUnit(groups: Array<[string, CollegeSnapshot[]]>, schedule
 }
 
 export async function runDailyBigUnitSync(env: Env, scheduledTime = Date.now()) {
+  if (!(await isAutoTeacherSyncEnabled(env))) {
+    return { skipped: true, reason: "auto_teacher_sync=false" };
+  }
+
   const runId = await createSyncRun(env, "scheduled-big-unit");
 
   try {
@@ -606,4 +675,26 @@ export async function runScheduledSync(env: Env) {
   }
 
   return runDailyBigUnitSync(env);
+}
+
+export async function uploadLocalSnapshots(env: Env, payload: Record<string, unknown>) {
+  const colleges = validateCollegeSnapshots(payload.colleges);
+  const teachers = validateTeacherSnapshots(payload.teachers);
+  const runId = await createSyncRun(env, "local-json-upload");
+
+  try {
+    const stats = await syncSnapshots(env, colleges, teachers);
+    const result = {
+      stats,
+      source: String(payload.source || "local-json"),
+      colleges: colleges.length,
+      teachers: teachers.length,
+    };
+
+    await finishSyncRun(env, runId, "success", result);
+    return result;
+  } catch (error) {
+    await finishSyncRun(env, runId, "failed", {}, String(error));
+    throw error;
+  }
 }

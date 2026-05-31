@@ -104,6 +104,8 @@ INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_discussion_group'
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('author_contact_mode', 'form');
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_about_links', 'false');
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_data_download', 'false');
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('auto_teacher_sync', 'false');
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('auto_github_backup_sync', 'false');
 
 CREATE INDEX IF NOT EXISTS idx_departments_big_dept_id ON departments (big_dept_id);
 CREATE INDEX IF NOT EXISTS idx_rel_teacher_uid ON teacher_department_relations (teacher_uid);

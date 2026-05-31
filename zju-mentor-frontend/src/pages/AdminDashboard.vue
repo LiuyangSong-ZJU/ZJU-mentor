@@ -19,10 +19,13 @@ const siteSettings = ref({
   showDiscussionGroup: false,
   authorContactMode: 'form',
   showAboutLinks: false,
-  showDataDownload: false
+  showDataDownload: false,
+  autoTeacherSync: false,
+  autoGithubBackupSync: false
 })
 const settingsError = ref('')
 const isSavingSettings = ref(false)
+const isDownloadingExport = ref(false)
 const isLoading = ref(true)
 const errorMessage = ref('')
 
@@ -173,7 +176,9 @@ const loadSiteSettings = async () => {
       showDiscussionGroup: Boolean(payload.showDiscussionGroup),
       authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form',
       showAboutLinks: Boolean(payload.showAboutLinks),
-      showDataDownload: Boolean(payload.showDataDownload)
+      showDataDownload: Boolean(payload.showDataDownload),
+      autoTeacherSync: Boolean(payload.autoTeacherSync),
+      autoGithubBackupSync: Boolean(payload.autoGithubBackupSync)
     }
   } catch (error) {
     settingsError.value = error.message || '加载站点设置失败。'
@@ -200,7 +205,9 @@ const saveSiteSettings = async nextSettings => {
         showDiscussionGroup: siteSettings.value.showDiscussionGroup,
         authorContactMode: siteSettings.value.authorContactMode,
         showAboutLinks: siteSettings.value.showAboutLinks,
-        showDataDownload: siteSettings.value.showDataDownload
+        showDataDownload: siteSettings.value.showDataDownload,
+        autoTeacherSync: siteSettings.value.autoTeacherSync,
+        autoGithubBackupSync: siteSettings.value.autoGithubBackupSync
       })
     })
     const payload = await response.json()
@@ -223,7 +230,9 @@ const saveSiteSettings = async nextSettings => {
       showDiscussionGroup: Boolean(payload.showDiscussionGroup),
       authorContactMode: payload.authorContactMode === 'direct' ? 'direct' : 'form',
       showAboutLinks: Boolean(payload.showAboutLinks),
-      showDataDownload: Boolean(payload.showDataDownload)
+      showDataDownload: Boolean(payload.showDataDownload),
+      autoTeacherSync: Boolean(payload.autoTeacherSync),
+      autoGithubBackupSync: Boolean(payload.autoGithubBackupSync)
     }
     ElMessage.success('站点设置已保存。')
   } catch (error) {
@@ -253,6 +262,52 @@ const updateAboutLinksVisibility = value => {
 
 const updateDataDownloadVisibility = value => {
   saveSiteSettings({ showDataDownload: value })
+}
+
+const updateAutoTeacherSync = value => {
+  saveSiteSettings({ autoTeacherSync: value })
+}
+
+const updateAutoGithubBackupSync = value => {
+  saveSiteSettings({ autoGithubBackupSync: value })
+}
+
+const downloadPublicDataExport = async () => {
+  isDownloadingExport.value = true
+
+  try {
+    const response = await adminFetch('/api/admin/export/public-data')
+    const payload = await response.json()
+
+    if (response.status === 401) {
+      clearAdminToken()
+      router.replace({
+        path: '/__admin__/login',
+        query: { redirect: '/__admin__' }
+      })
+      return
+    }
+
+    if (!response.ok) {
+      throw new Error(payload.message || `请求失败：${response.status}`)
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const timestamp = new Date().toISOString().replaceAll(':', '-').replace(/\.\d{3}Z$/, 'Z')
+    link.href = url
+    link.download = `zju-mentor-public-data-${timestamp}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    ElMessage.success(`已生成 ${payload.counts?.teachers ?? 0} 位老师的数据导出。`)
+  } catch (error) {
+    ElMessage.error(error.message || '下载全站数据失败。')
+  } finally {
+    isDownloadingExport.value = false
+  }
 }
 
 const handleDeleteFeedback = async item => {
@@ -466,6 +521,44 @@ onMounted(() => {
               inactive-text="隐藏"
               @change="updateDataDownloadVisibility"
             />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">自动同步教师数据库</div>
+              <div class="mt-1 text-xs text-slate-400">控制云端定时任务是否从浙江大学教师网页抓取并增量更新名录。</div>
+            </div>
+            <el-switch
+              v-model="siteSettings.autoTeacherSync"
+              :loading="isSavingSettings"
+              active-text="开启"
+              inactive-text="关闭"
+              @change="updateAutoTeacherSync"
+            />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-slate-50 p-4">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">同步数据库备份到 GitHub</div>
+              <div class="mt-1 text-xs text-slate-400">控制 GitHub Actions 是否发布最新公开数据包到 Release。</div>
+            </div>
+            <el-switch
+              v-model="siteSettings.autoGithubBackupSync"
+              :loading="isSavingSettings"
+              active-text="开启"
+              inactive-text="关闭"
+              @change="updateAutoGithubBackupSync"
+            />
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+            <div>
+              <div class="text-sm font-semibold text-slate-700">一键下载全站数据</div>
+              <div class="mt-1 text-xs text-slate-500">下载当前已有评价或链接的老师数据；不包含没有用户数据的完整导师名录。</div>
+            </div>
+            <el-button type="primary" plain :loading="isDownloadingExport" @click="downloadPublicDataExport">
+              下载 JSON
+            </el-button>
           </div>
         </div>
       </section>

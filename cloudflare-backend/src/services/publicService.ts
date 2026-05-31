@@ -286,6 +286,8 @@ export async function querySiteSettings(env: Env) {
     "author_contact_mode",
     "show_about_links",
     "show_data_download",
+    "auto_teacher_sync",
+    "auto_github_backup_sync",
   ];
   const rows = await d1All<Record<string, unknown>>(
     env.DB,
@@ -301,6 +303,8 @@ export async function querySiteSettings(env: Env) {
     authorContactMode: contactMode,
     showAboutLinks: settings.get("show_about_links") === "true",
     showDataDownload: settings.get("show_data_download") === "true",
+    autoTeacherSync: settings.get("auto_teacher_sync") === "true",
+    autoGithubBackupSync: settings.get("auto_github_backup_sync") === "true",
   };
 }
 
@@ -316,6 +320,12 @@ export async function updateSiteSettings(env: Env, payload: Record<string, unkno
       typeof payload.showAboutLinks === "boolean" ? payload.showAboutLinks : currentSettings.showAboutLinks,
     showDataDownload:
       typeof payload.showDataDownload === "boolean" ? payload.showDataDownload : currentSettings.showDataDownload,
+    autoTeacherSync:
+      typeof payload.autoTeacherSync === "boolean" ? payload.autoTeacherSync : currentSettings.autoTeacherSync,
+    autoGithubBackupSync:
+      typeof payload.autoGithubBackupSync === "boolean"
+        ? payload.autoGithubBackupSync
+        : currentSettings.autoGithubBackupSync,
   };
 
   const settingsToWrite = [
@@ -324,6 +334,8 @@ export async function updateSiteSettings(env: Env, payload: Record<string, unkno
     ["author_contact_mode", nextSettings.authorContactMode],
     ["show_about_links", nextSettings.showAboutLinks ? "true" : "false"],
     ["show_data_download", nextSettings.showDataDownload ? "true" : "false"],
+    ["auto_teacher_sync", nextSettings.autoTeacherSync ? "true" : "false"],
+    ["auto_github_backup_sync", nextSettings.autoGithubBackupSync ? "true" : "false"],
   ];
 
   for (const [key, value] of settingsToWrite) {
@@ -806,6 +818,174 @@ export async function queryAdminSiteFeedback(env: Env) {
       content: String(row.content || ""),
       date: String(row.created_at || ""),
     })),
+  };
+}
+
+export async function queryAdminPublicDataExport(env: Env) {
+  const teacherRows = await d1All<Record<string, unknown>>(
+    env.DB,
+    `
+      SELECT
+        t.uid,
+        t.name,
+        t.work_title,
+        t.department,
+        t.mapping_name,
+        t.profile_url
+      FROM teachers t
+      WHERE t.uid IN (
+        SELECT teacher_uid FROM comments
+        UNION
+        SELECT teacher_uid FROM cc98_links
+      )
+      ORDER BY t.name COLLATE NOCASE ASC, t.uid ASC
+    `,
+  );
+  const teacherUids = teacherRows.map((row) => String(row.uid));
+
+  if (teacherUids.length === 0) {
+    return {
+      generatedAt: new Date().toISOString(),
+      note: "仅包含已有评价或链接的老师；不包含未产生用户数据的完整导师名录。",
+      counts: { teachers: 0, comments: 0, links: 0 },
+      teachers: [],
+    };
+  }
+
+  const placeholders = teacherUids.map(() => "?").join(", ");
+  const relationRows = await d1All<Record<string, unknown>>(
+    env.DB,
+    `
+      SELECT
+        r.teacher_uid,
+        d.college_id,
+        d.college_name,
+        d.big_dept_id,
+        b.name AS big_dept_name
+      FROM teacher_department_relations r
+      LEFT JOIN departments d ON r.college_id = d.college_id
+      LEFT JOIN big_departments b ON d.big_dept_id = b.id
+      WHERE r.teacher_uid IN (${placeholders})
+      ORDER BY d.college_name COLLATE NOCASE ASC
+    `,
+    teacherUids,
+  );
+  const commentRows = await d1All<Record<string, unknown>>(
+    env.DB,
+    `
+      SELECT
+        id,
+        teacher_uid,
+        ethics,
+        academic,
+        wlb,
+        funding,
+        graduation,
+        outcome,
+        is_run_away,
+        identity,
+        content,
+        upvotes,
+        downvotes,
+        created_at
+      FROM comments
+      WHERE teacher_uid IN (${placeholders})
+      ORDER BY datetime(created_at) DESC, id DESC
+    `,
+    teacherUids,
+  );
+  const linkRows = await d1All<Record<string, unknown>>(
+    env.DB,
+    `
+      SELECT
+        id,
+        teacher_uid,
+        url,
+        title,
+        link_type,
+        description,
+        created_at
+      FROM cc98_links
+      WHERE teacher_uid IN (${placeholders})
+      ORDER BY datetime(created_at) DESC, id DESC
+    `,
+    teacherUids,
+  );
+
+  const relationsByTeacher = new Map<string, any[]>();
+  for (const row of relationRows) {
+    const uid = String(row.teacher_uid);
+    const current = relationsByTeacher.get(uid) || [];
+    current.push({
+      collegeId: String(row.college_id || ""),
+      collegeName: String(row.college_name || ""),
+      bigDepartmentId: row.big_dept_id ? String(row.big_dept_id) : null,
+      bigDepartmentName: row.big_dept_name ? String(row.big_dept_name) : null,
+    });
+    relationsByTeacher.set(uid, current);
+  }
+
+  const commentsByTeacher = new Map<string, any[]>();
+  for (const row of commentRows) {
+    const uid = String(row.teacher_uid);
+    const current = commentsByTeacher.get(uid) || [];
+    current.push({
+      id: Number(row.id),
+      scores: {
+        ethics: Number(row.ethics || 0),
+        academic: Number(row.academic || 0),
+        wlb: Number(row.wlb || 0),
+        funding: Number(row.funding || 0),
+        graduation: Number(row.graduation || 0),
+        outcome: Number(row.outcome || 0),
+      },
+      isRunAway: Number(row.is_run_away || 0) === 1,
+      identity: String(row.identity || ""),
+      content: String(row.content || ""),
+      upvotes: Number(row.upvotes || 0),
+      downvotes: Number(row.downvotes || 0),
+      createdAt: String(row.created_at || ""),
+    });
+    commentsByTeacher.set(uid, current);
+  }
+
+  const linksByTeacher = new Map<string, any[]>();
+  for (const row of linkRows) {
+    const uid = String(row.teacher_uid);
+    const current = linksByTeacher.get(uid) || [];
+    current.push({
+      id: Number(row.id),
+      url: String(row.url || ""),
+      title: String(row.title || ""),
+      linkType: String(row.link_type || "cc98"),
+      description: String(row.description || ""),
+      createdAt: String(row.created_at || ""),
+    });
+    linksByTeacher.set(uid, current);
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    note: "仅包含已有评价或链接的老师；不包含未产生用户数据的完整导师名录。",
+    counts: {
+      teachers: teacherRows.length,
+      comments: commentRows.length,
+      links: linkRows.length,
+    },
+    teachers: teacherRows.map((row) => {
+      const uid = String(row.uid);
+      return {
+        uid,
+        name: String(row.name || ""),
+        workTitle: String(row.work_title || ""),
+        department: String(row.department || ""),
+        mappingName: row.mapping_name ? String(row.mapping_name) : null,
+        profileUrl: String(row.profile_url || ""),
+        colleges: relationsByTeacher.get(uid) || [],
+        comments: commentsByTeacher.get(uid) || [],
+        links: linksByTeacher.get(uid) || [],
+      };
+    }),
   };
 }
 

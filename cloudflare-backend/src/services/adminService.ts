@@ -2,6 +2,7 @@ export {
   deleteCommentRecord,
   deleteLinkRecord,
   deleteSiteFeedback,
+  queryAdminPublicDataExport,
   queryAdminSiteFeedback,
   queryAdminTeacherRankings,
   querySiteSettings,
