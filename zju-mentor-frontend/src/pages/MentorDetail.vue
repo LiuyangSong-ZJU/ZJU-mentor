@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Edit, Link } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
@@ -57,7 +57,9 @@ const reviewForm = reactive({
   isRunAway: false,
   identity: '',
   content: '',
-  confirmed: false
+  confirmed: false,
+  delayPublish: false,
+  visibleAfterDate: ''
 })
 
 const complaintForm = reactive({
@@ -68,7 +70,9 @@ const complaintForm = reactive({
 const linkForm = reactive({
   url: '',
   linkType: 'cc98',
-  description: ''
+  description: '',
+  delayPublish: false,
+  visibleAfterDate: ''
 })
 
 const sliderMarks = {
@@ -113,6 +117,47 @@ const formatDisplayDate = value => {
   return String(value).replace('T', ' ').slice(0, 16)
 }
 
+const chinaTodayDateString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+const maxDelayedPublishDate = computed(() => {
+  const today = chinaTodayDateString()
+  return `${Number(today.slice(0, 4)) + 20}${today.slice(4)}`
+})
+
+const isFuturePublishDate = value => Boolean(value) && value > chinaTodayDateString()
+
+const delayedPublishStatusText = value => {
+  if (!value) {
+    return '请选择发表日期。'
+  }
+
+  if (isFuturePublishDate(value)) {
+    return `您的内容将于 ${value} 开始公开展示。`
+  }
+
+  return '您的内容将立即公开展示。'
+}
+
+const disabledDelayedPublishDate = date => {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}` > maxDelayedPublishDate.value
+}
+
+const resolveVisibleAfterDate = form => {
+  if (!form.delayPublish) {
+    return ''
+  }
+
+  if (!form.visibleAfterDate) {
+    ElMessage.error('请先选择发表日期，或取消延迟展示。')
+    return null
+  }
+
+  return form.visibleAfterDate
+}
+
 const resetReviewForm = () => {
   for (const metric of metricDefinitions) {
     reviewForm.scores[metric.key] = 0
@@ -121,12 +166,16 @@ const resetReviewForm = () => {
   reviewForm.identity = ''
   reviewForm.content = ''
   reviewForm.confirmed = false
+  reviewForm.delayPublish = false
+  reviewForm.visibleAfterDate = ''
 }
 
 const resetLinkForm = () => {
   linkForm.url = ''
   linkForm.linkType = 'cc98'
   linkForm.description = ''
+  linkForm.delayPublish = false
+  linkForm.visibleAfterDate = ''
 }
 
 const applyMentorPayload = payload => {
@@ -245,6 +294,11 @@ const submitReview = async () => {
     return
   }
 
+  const visibleAfterDate = resolveVisibleAfterDate(reviewForm)
+  if (visibleAfterDate === null) {
+    return
+  }
+
   const trimmedContent = reviewForm.content.trim()
   isSubmittingReview.value = true
 
@@ -258,7 +312,8 @@ const submitReview = async () => {
         scores: reviewForm.scores,
         isRunAway: reviewForm.isRunAway,
         identity: reviewForm.identity,
-        content: trimmedContent
+        content: trimmedContent,
+        visibleAfterDate
       })
     })
 
@@ -270,7 +325,13 @@ const submitReview = async () => {
     applyMentorPayload(payload)
     isReviewDialogOpen.value = false
     activeTab.value = 'reviews'
-    ElMessage.success('评价已添加。')
+    if (isFuturePublishDate(visibleAfterDate)) {
+      await ElMessageBox.alert(`您的内容将在 ${visibleAfterDate} 之后开始展示！`, '已设置延迟展示', {
+        confirmButtonText: '知道了'
+      })
+    } else {
+      ElMessage.success('评价已添加。')
+    }
     await nextTick()
     renderRadarChart()
   } catch (error) {
@@ -340,6 +401,11 @@ const submitLink = async () => {
     return
   }
 
+  const visibleAfterDate = resolveVisibleAfterDate(linkForm)
+  if (visibleAfterDate === null) {
+    return
+  }
+
   isSubmittingLink.value = true
 
   try {
@@ -351,7 +417,8 @@ const submitLink = async () => {
       body: JSON.stringify({
         url: trimmedUrl,
         linkType: linkForm.linkType || 'cc98',
-        description: linkForm.description.trim()
+        description: linkForm.description.trim(),
+        visibleAfterDate
       })
     })
 
@@ -363,7 +430,13 @@ const submitLink = async () => {
     applyMentorPayload(payload)
     isLinkDialogOpen.value = false
     activeTab.value = 'links'
-    ElMessage.success('链接已添加。')
+    if (isFuturePublishDate(visibleAfterDate)) {
+      await ElMessageBox.alert(`您的内容将在 ${visibleAfterDate} 之后开始展示！`, '已设置延迟展示', {
+        confirmButtonText: '知道了'
+      })
+    } else {
+      ElMessage.success('链接已添加。')
+    }
   } catch (error) {
     ElMessage.error(error.message || '提交链接失败。')
   } finally {
@@ -737,6 +810,35 @@ watch(radarChartRef, value => {
             />
           </div>
 
+          <div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <el-checkbox v-model="reviewForm.delayPublish" class="delayed-publish-checkbox">
+                延迟展示-设置日期
+              </el-checkbox>
+              <span class="text-sm text-slate-400">不即时发表，自定义公开展示时间</span>
+            </div>
+
+            <div v-if="reviewForm.delayPublish" class="mt-4 space-y-3">
+              <div class="grid gap-3 sm:grid-cols-[96px_minmax(0,1fr)] sm:items-center">
+                <div class="text-sm font-medium text-slate-500">发表日期</div>
+                <el-date-picker
+                  v-model="reviewForm.visibleAfterDate"
+                  type="date"
+                  value-format="YYYY-MM-DD"
+                  format="YYYY 年 MM 月 DD 日"
+                  placeholder="选择或输入 YYYY-MM-DD"
+                  :clearable="true"
+                  :editable="true"
+                  :disabled-date="disabledDelayedPublishDate"
+                  class="w-full"
+                />
+              </div>
+              <div class="text-sm font-medium text-blue-600">
+                {{ delayedPublishStatusText(reviewForm.visibleAfterDate) }}
+              </div>
+            </div>
+          </div>
+
           <el-checkbox v-model="reviewForm.confirmed" class="review-confirm-checkbox">
             <span class="review-confirm-text">
               我确认评价基于本人经历或可核实信息；不包含侮辱、人身攻击、隐私信息、虚假信息或未经证实的严重违法违纪指控。
@@ -801,6 +903,35 @@ watch(radarChartRef, value => {
             show-word-limit
             placeholder="可以补充帖子内容、上下文或提醒。"
           />
+        </div>
+
+        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <el-checkbox v-model="linkForm.delayPublish" class="delayed-publish-checkbox">
+              延迟展示-设置日期
+            </el-checkbox>
+            <span class="text-sm text-slate-400">不即时发表，自定义公开展示时间</span>
+          </div>
+
+          <div v-if="linkForm.delayPublish" class="mt-4 space-y-3">
+            <div class="grid gap-3 sm:grid-cols-[96px_minmax(0,1fr)] sm:items-center">
+              <div class="text-sm font-medium text-slate-500">发表日期</div>
+              <el-date-picker
+                v-model="linkForm.visibleAfterDate"
+                type="date"
+                value-format="YYYY-MM-DD"
+                format="YYYY 年 MM 月 DD 日"
+                placeholder="选择或输入 YYYY-MM-DD"
+                :clearable="true"
+                :editable="true"
+                :disabled-date="disabledDelayedPublishDate"
+                class="w-full"
+              />
+            </div>
+            <div class="text-sm font-medium text-blue-600">
+              {{ delayedPublishStatusText(linkForm.visibleAfterDate) }}
+            </div>
+          </div>
         </div>
       </div>
 

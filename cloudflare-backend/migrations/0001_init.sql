@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS comments (
   is_run_away INTEGER NOT NULL DEFAULT 0,
   upvotes INTEGER DEFAULT 0,
   downvotes INTEGER DEFAULT 0,
+  visible_after_date TEXT NOT NULL DEFAULT '',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (teacher_uid) REFERENCES teachers (uid)
 );
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS cc98_links (
   title TEXT,
   link_type TEXT NOT NULL DEFAULT 'cc98',
   description TEXT NOT NULL DEFAULT '',
+  visible_after_date TEXT NOT NULL DEFAULT '',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (teacher_uid) REFERENCES teachers (uid)
 );
@@ -106,6 +108,8 @@ INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_about_links', 'fa
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_data_download', 'false');
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('auto_teacher_sync', 'false');
 INSERT OR IGNORE INTO site_settings (key, value) VALUES ('auto_github_backup_sync', 'false');
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('show_home_announcement', 'true');
+INSERT OR IGNORE INTO site_settings (key, value) VALUES ('home_announcement', '🌟2026-06-01 更新：新增提交内容延迟发表功能，想说的话/想添加的帖子都可以自由设置公开展示时间（可以设置到毕业后哦😉😆）！提交的内容在设置的时间之前不会被展示～');
 
 CREATE INDEX IF NOT EXISTS idx_departments_big_dept_id ON departments (big_dept_id);
 CREATE INDEX IF NOT EXISTS idx_rel_teacher_uid ON teacher_department_relations (teacher_uid);

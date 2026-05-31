@@ -53,7 +53,7 @@ export async function handleAdminRoute(request: Request, env: Env, pathname: str
 
   const teacherMatch = pathname.match(/^\/api\/admin\/teachers\/([^/]+)$/);
   if (request.method === "GET" && teacherMatch) {
-    return queryTeacherDetail(env, decodeURIComponent(teacherMatch[1]));
+    return queryTeacherDetail(env, decodeURIComponent(teacherMatch[1]), { includeHidden: true });
   }
 
   const commentMatch = pathname.match(/^\/api\/admin\/comments\/(\d+)$/);

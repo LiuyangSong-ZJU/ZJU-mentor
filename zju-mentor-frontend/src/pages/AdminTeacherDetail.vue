@@ -20,6 +20,14 @@ const formatDisplayDate = value => {
   return String(value).replace('T', ' ').slice(0, 16)
 }
 
+const formatPublishStatus = item => {
+  if (!item.visibleAfterDate) {
+    return '立即展示'
+  }
+
+  return item.isPubliclyVisible ? `已公开：${item.visibleAfterDate}` : `延迟展示：${item.visibleAfterDate}`
+}
+
 const handleUnauthorized = () => {
   clearAdminToken()
   router.replace({
@@ -172,6 +180,12 @@ onMounted(() => {
                 <span>{{ formatDisplayDate(review.date) }}</span>
                 <span v-if="review.identity" class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-500">{{ review.identity }}</span>
                 <span v-if="review.isRunAway" class="rounded bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700">快跑</span>
+                <span
+                  class="rounded px-2 py-1 text-xs font-semibold"
+                  :class="review.visibleAfterDate && !review.isPubliclyVisible ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+                >
+                  {{ formatPublishStatus(review) }}
+                </span>
               </div>
 
               <el-button type="danger" plain @click="handleDeleteComment(review)">删除评论</el-button>
@@ -209,6 +223,12 @@ onMounted(() => {
                 <span>{{ formatDisplayDate(item.date) }}</span>
                 <span class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-500">
                   {{ item.linkType === 'other' ? '其他链接' : 'CC98' }}
+                </span>
+                <span
+                  class="rounded px-2 py-1 text-xs font-semibold"
+                  :class="item.visibleAfterDate && !item.isPubliclyVisible ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'"
+                >
+                  {{ formatPublishStatus(item) }}
                 </span>
               </div>
 

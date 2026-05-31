@@ -11,6 +11,10 @@ const portalStats = ref({
 })
 
 const hasLoadedStats = ref(false)
+const siteSettings = ref({
+  showHomeAnnouncement: true,
+  homeAnnouncement: ''
+})
 
 onMounted(async () => {
   try {
@@ -23,6 +27,24 @@ onMounted(async () => {
     hasLoadedStats.value = true
   } catch {
     hasLoadedStats.value = false
+  }
+
+  try {
+    const response = await fetch('/api/settings')
+    if (!response.ok) {
+      throw new Error(`请求失败：${response.status}`)
+    }
+
+    const payload = await response.json()
+    siteSettings.value = {
+      showHomeAnnouncement: payload.showHomeAnnouncement !== false,
+      homeAnnouncement: String(payload.homeAnnouncement || '')
+    }
+  } catch {
+    siteSettings.value = {
+      showHomeAnnouncement: true,
+      homeAnnouncement: '🌟2026-06-01 更新：新增提交内容延迟发表功能，想说的话/想添加的帖子都可以自由设置公开展示时间（可以设置到毕业后哦😉😆）！提交的内容在设置的时间之前不会被展示～'
+    }
   }
 })
 </script>
@@ -51,6 +73,13 @@ onMounted(async () => {
         </p>
       </div>
     </main>
+
+    <div
+      v-if="siteSettings.showHomeAnnouncement && siteSettings.homeAnnouncement"
+      class="fixed bottom-5 left-5 z-20 max-w-sm rounded-3xl border border-blue-100 bg-white/90 px-5 py-4 text-sm leading-7 text-slate-600 shadow-xl shadow-blue-100/40 backdrop-blur"
+    >
+      {{ siteSettings.homeAnnouncement }}
+    </div>
 
     <SiteFooter />
   </div>

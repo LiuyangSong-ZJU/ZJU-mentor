@@ -33,6 +33,44 @@ function averageMetricValues(metricValues: Array<number | null>): number {
   return Math.round((total / values.length) * 10) / 10;
 }
 
+function todayInChina() {
+  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function publicVisibilityCondition(alias = "") {
+  const prefix = alias ? `${alias}.` : "";
+  return `(${prefix}visible_after_date = '' OR ${prefix}visible_after_date <= ?)`;
+}
+
+function normalizePublishDate(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    throw new AppError(400, "发表日期格式必须是 YYYY-MM-DD。");
+  }
+
+  const [year, month, day] = raw.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new AppError(400, "发表日期不合法。");
+  }
+
+  const today = todayInChina();
+  const maxDate = `${Number(today.slice(0, 4)) + 20}${today.slice(4)}`;
+  if (raw > maxDate) {
+    throw new AppError(400, "发表日期最多只能设置到未来 20 年内。");
+  }
+
+  return raw > today ? raw : "";
+}
+
 export async function queryUnitRows(env: Env) {
   return d1All<{
     college_id: string;
@@ -252,11 +290,12 @@ export async function queryPortalStats(env: Env) {
     `
       SELECT COUNT(*) AS submitted_teacher_count
       FROM (
-        SELECT teacher_uid FROM comments
+        SELECT teacher_uid FROM comments WHERE ${publicVisibilityCondition()}
         UNION
-        SELECT teacher_uid FROM cc98_links
+        SELECT teacher_uid FROM cc98_links WHERE ${publicVisibilityCondition()}
       )
     `,
+    [todayInChina(), todayInChina()],
   );
   const reviewRow = await d1First<Record<string, unknown>>(
     env.DB,
@@ -264,11 +303,14 @@ export async function queryPortalStats(env: Env) {
       SELECT
         COUNT(*) AS review_count
       FROM comments
+      WHERE ${publicVisibilityCondition()}
     `,
+    [todayInChina()],
   );
   const linkRow = await d1First<Record<string, unknown>>(
     env.DB,
-    "SELECT COUNT(*) AS link_count FROM cc98_links",
+    `SELECT COUNT(*) AS link_count FROM cc98_links WHERE ${publicVisibilityCondition()}`,
+    [todayInChina()],
   );
 
   return {
@@ -288,6 +330,8 @@ export async function querySiteSettings(env: Env) {
     "show_data_download",
     "auto_teacher_sync",
     "auto_github_backup_sync",
+    "show_home_announcement",
+    "home_announcement",
   ];
   const rows = await d1All<Record<string, unknown>>(
     env.DB,
@@ -305,6 +349,8 @@ export async function querySiteSettings(env: Env) {
     showDataDownload: settings.get("show_data_download") === "true",
     autoTeacherSync: settings.get("auto_teacher_sync") === "true",
     autoGithubBackupSync: settings.get("auto_github_backup_sync") === "true",
+    showHomeAnnouncement: settings.get("show_home_announcement") !== "false",
+    homeAnnouncement: settings.get("home_announcement") || "",
   };
 }
 
@@ -326,6 +372,14 @@ export async function updateSiteSettings(env: Env, payload: Record<string, unkno
       typeof payload.autoGithubBackupSync === "boolean"
         ? payload.autoGithubBackupSync
         : currentSettings.autoGithubBackupSync,
+    showHomeAnnouncement:
+      typeof payload.showHomeAnnouncement === "boolean"
+        ? payload.showHomeAnnouncement
+        : currentSettings.showHomeAnnouncement,
+    homeAnnouncement:
+      typeof payload.homeAnnouncement === "string"
+        ? payload.homeAnnouncement.trim().slice(0, 500)
+        : currentSettings.homeAnnouncement,
   };
 
   const settingsToWrite = [
@@ -336,6 +390,8 @@ export async function updateSiteSettings(env: Env, payload: Record<string, unkno
     ["show_data_download", nextSettings.showDataDownload ? "true" : "false"],
     ["auto_teacher_sync", nextSettings.autoTeacherSync ? "true" : "false"],
     ["auto_github_backup_sync", nextSettings.autoGithubBackupSync ? "true" : "false"],
+    ["show_home_announcement", nextSettings.showHomeAnnouncement ? "true" : "false"],
+    ["home_announcement", nextSettings.homeAnnouncement],
   ];
 
   for (const [key, value] of settingsToWrite) {
@@ -491,10 +547,13 @@ function serializeReviewRow(row: Record<string, unknown>) {
     scores: reviewScores,
     upvotes: Number(row.upvotes || 0),
     downvotes: Number(row.downvotes || 0),
+    visibleAfterDate: String(row.visible_after_date || ""),
+    isPubliclyVisible: !row.visible_after_date || String(row.visible_after_date) <= todayInChina(),
   };
 }
 
-export async function queryTeacherReviews(env: Env, uid: string) {
+export async function queryTeacherReviews(env: Env, uid: string, includeHidden = false) {
+  const today = todayInChina();
   const rows = await d1All<Record<string, unknown>>(
     env.DB,
     `
@@ -511,18 +570,21 @@ export async function queryTeacherReviews(env: Env, uid: string) {
         is_run_away,
         upvotes,
         downvotes,
+        visible_after_date,
         created_at
       FROM comments
       WHERE teacher_uid = ?
+      ${includeHidden ? "" : `AND ${publicVisibilityCondition()}`}
       ORDER BY datetime(created_at) DESC, id DESC
     `,
-    [uid],
+    includeHidden ? [uid] : [uid, today],
   );
 
   return rows.map(serializeReviewRow);
 }
 
-export async function queryTeacherLinks(env: Env, uid: string) {
+export async function queryTeacherLinks(env: Env, uid: string, includeHidden = false) {
+  const today = todayInChina();
   const rows = await d1All<Record<string, unknown>>(
     env.DB,
     `
@@ -531,12 +593,14 @@ export async function queryTeacherLinks(env: Env, uid: string) {
         url,
         COALESCE(link_type, 'cc98') AS link_type,
         COALESCE(description, title, '') AS description,
+        visible_after_date,
         created_at
       FROM cc98_links
       WHERE teacher_uid = ?
+      ${includeHidden ? "" : `AND ${publicVisibilityCondition()}`}
       ORDER BY datetime(created_at) DESC, id DESC
     `,
-    [uid],
+    includeHidden ? [uid] : [uid, today],
   );
 
   return rows.map((row) => ({
@@ -544,11 +608,14 @@ export async function queryTeacherLinks(env: Env, uid: string) {
     url: String(row.url || ""),
     linkType: String(row.link_type || "cc98"),
     description: String(row.description || ""),
+    visibleAfterDate: String(row.visible_after_date || ""),
+    isPubliclyVisible: !row.visible_after_date || String(row.visible_after_date) <= today,
     date: String(row.created_at || ""),
   }));
 }
 
-export async function queryTeacherSummary(env: Env, uid: string) {
+export async function queryTeacherSummary(env: Env, uid: string, includeHidden = false) {
+  const today = todayInChina();
   const reviewCounts = await d1First<Record<string, unknown>>(
     env.DB,
     `
@@ -557,8 +624,9 @@ export async function queryTeacherSummary(env: Env, uid: string) {
         SUM(CASE WHEN is_run_away = 1 THEN 1 ELSE 0 END) AS run_away_votes
       FROM comments
       WHERE teacher_uid = ?
+      ${includeHidden ? "" : `AND ${publicVisibilityCondition()}`}
     `,
-    [uid],
+    includeHidden ? [uid] : [uid, today],
   );
 
   const aggregates = await d1First<Record<string, unknown>>(
@@ -579,8 +647,9 @@ export async function queryTeacherSummary(env: Env, uid: string) {
         COUNT(score_outcome) AS count_outcome
       FROM comments
       WHERE teacher_uid = ?
+      ${includeHidden ? "" : `AND ${publicVisibilityCondition()}`}
     `,
-    [uid],
+    includeHidden ? [uid] : [uid, today],
   );
 
   const metrics = METRIC_FIELDS.map((metric) => {
@@ -607,16 +676,17 @@ async function teacherExists(env: Env, uid: string): Promise<boolean> {
   return Boolean(row);
 }
 
-export async function queryTeacherDetail(env: Env, uid: string) {
+export async function queryTeacherDetail(env: Env, uid: string, options: { includeHidden?: boolean } = {}) {
   const teachers = await fetchTeacherRows(env);
   const teacher = teachers.find((item) => item.uid === uid);
   if (!teacher) {
     throw new AppError(404, `找不到导师: ${uid}`);
   }
 
-  const summary = await queryTeacherSummary(env, uid);
-  const reviews = await queryTeacherReviews(env, uid);
-  const links = await queryTeacherLinks(env, uid);
+  const includeHidden = Boolean(options.includeHidden);
+  const summary = await queryTeacherSummary(env, uid, includeHidden);
+  const reviews = await queryTeacherReviews(env, uid, includeHidden);
+  const links = await queryTeacherLinks(env, uid, includeHidden);
 
   return {
     ...teacher,
@@ -633,6 +703,7 @@ export async function createTeacherReview(env: Env, uid: string, payload: Record
   const identity = String(payload.identity || "").trim();
   const content = String(payload.content || "").trim();
   const isRunAway = Boolean(payload.isRunAway);
+  const visibleAfterDate = normalizePublishDate(payload.visibleAfterDate);
 
   if (!(await teacherExists(env, uid))) {
     throw new AppError(404, `找不到导师: ${uid}`);
@@ -651,8 +722,9 @@ export async function createTeacherReview(env: Env, uid: string, payload: Record
         score_funding,
         score_graduation,
         score_outcome,
-        is_run_away
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        is_run_away,
+        visible_after_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       uid,
@@ -665,6 +737,7 @@ export async function createTeacherReview(env: Env, uid: string, payload: Record
       coerceScore(scores.graduation),
       coerceScore(scores.outcome),
       isRunAway ? 1 : 0,
+      visibleAfterDate,
     ],
   );
 
@@ -676,6 +749,7 @@ export async function createTeacherLink(env: Env, uid: string, payload: Record<s
   const rawType = String(payload.linkType || "cc98").trim().toLowerCase();
   const description = String(payload.description || "").trim();
   const linkType = rawType === "other" ? "other" : "cc98";
+  const visibleAfterDate = normalizePublishDate(payload.visibleAfterDate);
 
   if (!url) {
     throw new AppError(400, "链接不能为空。");
@@ -693,10 +767,11 @@ export async function createTeacherLink(env: Env, uid: string, payload: Record<s
         url,
         title,
         link_type,
-        description
-      ) VALUES (?, ?, ?, ?, ?)
+        description,
+        visible_after_date
+      ) VALUES (?, ?, ?, ?, ?, ?)
     `,
-    [uid, url, description || null, linkType, description],
+    [uid, url, description || null, linkType, description, visibleAfterDate],
   );
 
   return queryTeacherDetail(env, uid);
@@ -834,12 +909,13 @@ export async function queryAdminPublicDataExport(env: Env) {
         t.profile_url
       FROM teachers t
       WHERE t.uid IN (
-        SELECT teacher_uid FROM comments
+        SELECT teacher_uid FROM comments WHERE ${publicVisibilityCondition()}
         UNION
-        SELECT teacher_uid FROM cc98_links
+        SELECT teacher_uid FROM cc98_links WHERE ${publicVisibilityCondition()}
       )
       ORDER BY t.name COLLATE NOCASE ASC, t.uid ASC
     `,
+    [todayInChina(), todayInChina()],
   );
   const teacherUids = teacherRows.map((row) => String(row.uid));
 
@@ -887,12 +963,14 @@ export async function queryAdminPublicDataExport(env: Env) {
         content,
         upvotes,
         downvotes,
+        visible_after_date,
         created_at
       FROM comments
       WHERE teacher_uid IN (${placeholders})
+        AND ${publicVisibilityCondition()}
       ORDER BY datetime(created_at) DESC, id DESC
     `,
-    teacherUids,
+    [...teacherUids, todayInChina()],
   );
   const linkRows = await d1All<Record<string, unknown>>(
     env.DB,
@@ -904,12 +982,14 @@ export async function queryAdminPublicDataExport(env: Env) {
         title,
         link_type,
         description,
+        visible_after_date,
         created_at
       FROM cc98_links
       WHERE teacher_uid IN (${placeholders})
+        AND ${publicVisibilityCondition()}
       ORDER BY datetime(created_at) DESC, id DESC
     `,
-    teacherUids,
+    [...teacherUids, todayInChina()],
   );
 
   const relationsByTeacher = new Map<string, any[]>();
@@ -944,6 +1024,7 @@ export async function queryAdminPublicDataExport(env: Env) {
       content: String(row.content || ""),
       upvotes: Number(row.upvotes || 0),
       downvotes: Number(row.downvotes || 0),
+      visibleAfterDate: String(row.visible_after_date || ""),
       createdAt: String(row.created_at || ""),
     });
     commentsByTeacher.set(uid, current);
@@ -959,6 +1040,7 @@ export async function queryAdminPublicDataExport(env: Env) {
       title: String(row.title || ""),
       linkType: String(row.link_type || "cc98"),
       description: String(row.description || ""),
+      visibleAfterDate: String(row.visible_after_date || ""),
       createdAt: String(row.created_at || ""),
     });
     linksByTeacher.set(uid, current);
@@ -1111,7 +1193,7 @@ export async function deleteCommentRecord(env: Env, commentId: number) {
 
   await d1Run(env.DB, "DELETE FROM comment_votes WHERE comment_id = ?", [commentId]);
   await d1Run(env.DB, "DELETE FROM comments WHERE id = ?", [commentId]);
-  return queryTeacherDetail(env, row.teacher_uid);
+  return queryTeacherDetail(env, row.teacher_uid, { includeHidden: true });
 }
 
 export async function deleteLinkRecord(env: Env, linkId: number) {
@@ -1125,5 +1207,5 @@ export async function deleteLinkRecord(env: Env, linkId: number) {
   }
 
   await d1Run(env.DB, "DELETE FROM cc98_links WHERE id = ?", [linkId]);
-  return queryTeacherDetail(env, row.teacher_uid);
+  return queryTeacherDetail(env, row.teacher_uid, { includeHidden: true });
 }

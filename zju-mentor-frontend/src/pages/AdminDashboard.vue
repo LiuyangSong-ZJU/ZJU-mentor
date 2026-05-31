@@ -21,7 +21,9 @@ const siteSettings = ref({
   showAboutLinks: false,
   showDataDownload: false,
   autoTeacherSync: false,
-  autoGithubBackupSync: false
+  autoGithubBackupSync: false,
+  showHomeAnnouncement: true,
+  homeAnnouncement: ''
 })
 const settingsError = ref('')
 const isSavingSettings = ref(false)
@@ -178,7 +180,9 @@ const loadSiteSettings = async () => {
       showAboutLinks: Boolean(payload.showAboutLinks),
       showDataDownload: Boolean(payload.showDataDownload),
       autoTeacherSync: Boolean(payload.autoTeacherSync),
-      autoGithubBackupSync: Boolean(payload.autoGithubBackupSync)
+      autoGithubBackupSync: Boolean(payload.autoGithubBackupSync),
+      showHomeAnnouncement: payload.showHomeAnnouncement !== false,
+      homeAnnouncement: String(payload.homeAnnouncement || '')
     }
   } catch (error) {
     settingsError.value = error.message || '加载站点设置失败。'
@@ -207,7 +211,9 @@ const saveSiteSettings = async nextSettings => {
         showAboutLinks: siteSettings.value.showAboutLinks,
         showDataDownload: siteSettings.value.showDataDownload,
         autoTeacherSync: siteSettings.value.autoTeacherSync,
-        autoGithubBackupSync: siteSettings.value.autoGithubBackupSync
+        autoGithubBackupSync: siteSettings.value.autoGithubBackupSync,
+        showHomeAnnouncement: siteSettings.value.showHomeAnnouncement,
+        homeAnnouncement: siteSettings.value.homeAnnouncement
       })
     })
     const payload = await response.json()
@@ -232,7 +238,9 @@ const saveSiteSettings = async nextSettings => {
       showAboutLinks: Boolean(payload.showAboutLinks),
       showDataDownload: Boolean(payload.showDataDownload),
       autoTeacherSync: Boolean(payload.autoTeacherSync),
-      autoGithubBackupSync: Boolean(payload.autoGithubBackupSync)
+      autoGithubBackupSync: Boolean(payload.autoGithubBackupSync),
+      showHomeAnnouncement: payload.showHomeAnnouncement !== false,
+      homeAnnouncement: String(payload.homeAnnouncement || '')
     }
     ElMessage.success('站点设置已保存。')
   } catch (error) {
@@ -270,6 +278,14 @@ const updateAutoTeacherSync = value => {
 
 const updateAutoGithubBackupSync = value => {
   saveSiteSettings({ autoGithubBackupSync: value })
+}
+
+const updateHomeAnnouncementVisibility = value => {
+  saveSiteSettings({ showHomeAnnouncement: value })
+}
+
+const saveHomeAnnouncement = () => {
+  saveSiteSettings({ homeAnnouncement: siteSettings.value.homeAnnouncement })
 }
 
 const downloadPublicDataExport = async () => {
@@ -549,6 +565,33 @@ onMounted(() => {
               inactive-text="关闭"
               @change="updateAutoGithubBackupSync"
             />
+          </div>
+
+          <div class="rounded-2xl bg-slate-50 p-4">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div class="text-sm font-semibold text-slate-700">主页左下角公告</div>
+                <div class="mt-1 text-xs text-slate-400">修改门户左下角展示文字，最多 500 字。</div>
+              </div>
+              <el-switch
+                v-model="siteSettings.showHomeAnnouncement"
+                :loading="isSavingSettings"
+                active-text="显示"
+                inactive-text="隐藏"
+                @change="updateHomeAnnouncementVisibility"
+              />
+            </div>
+            <el-input
+              v-model="siteSettings.homeAnnouncement"
+              type="textarea"
+              :rows="3"
+              maxlength="500"
+              show-word-limit
+              placeholder="填写主页左下角公告内容"
+            />
+            <div class="mt-3 flex justify-end">
+              <el-button type="primary" plain :loading="isSavingSettings" @click="saveHomeAnnouncement">保存公告</el-button>
+            </div>
           </div>
 
           <div class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
