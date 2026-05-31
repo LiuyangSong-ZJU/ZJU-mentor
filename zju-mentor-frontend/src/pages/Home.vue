@@ -51,7 +51,7 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen bg-gradient-to-b from-slate-50 via-white to-rose-50/30 p-6 flex flex-col">
-    <main class="flex-1 flex items-center justify-center">
+    <main class="flex-1 flex flex-col justify-center">
       <div class="w-full max-w-2xl">
         <h1 class="mb-7 text-center text-5xl font-extrabold tracking-tight text-[#033e87] sm:text-6xl">
           浙大查导师
@@ -71,13 +71,13 @@ onMounted(async () => {
         <p class="mx-auto mt-12 max-w-xl rounded-2xl border border-slate-200/70 bg-white/70 px-5 py-4 text-center text-sm leading-7 text-slate-500 shadow-sm">
           本站评价来自用户投稿，不代表本站立场；相关信息仅供参考，请结合导师主页、学院公开信息、在读学生反馈等多渠道核实。
         </p>
+      </div>
 
-        <div
-          v-if="siteSettings.showHomeAnnouncement && siteSettings.homeAnnouncement"
-          class="mt-8 max-w-sm rounded-3xl border border-blue-100 bg-white/90 px-5 py-4 text-left text-sm leading-7 text-slate-600 shadow-xl shadow-blue-100/40 backdrop-blur"
-        >
-          {{ siteSettings.homeAnnouncement }}
-        </div>
+      <div
+        v-if="siteSettings.showHomeAnnouncement && siteSettings.homeAnnouncement"
+        class="mt-auto max-w-3xl rounded-3xl border border-blue-100 bg-white/90 px-6 py-4 text-left text-sm leading-7 text-slate-600 shadow-xl shadow-blue-100/40 backdrop-blur"
+      >
+        {{ siteSettings.homeAnnouncement }}
       </div>
     </main>
 
